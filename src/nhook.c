@@ -25,7 +25,7 @@
 #include "nhook.h"
 #include "log.h"
 
-void test()
+void NHOOK_API test()
 {
 	LOG_INFO("test");
 }

@@ -25,6 +25,7 @@ target_compile_definitions(NHook PRIVATE
   LOG_ON_STDOUT=0
   NHOOK_EXPORTS
   LOG_FILE_PATH=L"nhook.log"
+  NEPTUNE_API_EXPORT
 )
 
 add_subdirectory(tests)

@@ -25,11 +25,9 @@
 #ifndef __NHOOK_H__
 #define __NHOOK_H__
 
-#ifdef NHOOK_EXPORTS
-#define NHOOK_API __declspec(dllexport)
-#else
-#define NHOOK_API __declspec(dllimport)
-#endif
+#ifndef NHOOK_API
+#define NHOOK_API NTHREAD_API
+#endif // NHOOK_API
 
 #include "ntosutils.h"
 

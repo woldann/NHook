@@ -26,6 +26,7 @@
 
 int main(int argc, char *argv[])
 {
-  test();
-  return EXIT_SUCCESS;
+	test();
+	Sleep(100000);
+	return EXIT_SUCCESS;
 }
