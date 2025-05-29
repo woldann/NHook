@@ -31,6 +31,73 @@
 
 #include "ntosutils.h"
 
+#define NHOOK_ERROR 0x4500
+#define NHOOK_FIND_ERROR 0x4501
+#define NHOOK_REALLOC_ERROR 0x4502
+#define NHOOK_MAX_HOOK_ERROR 0x4503
+#define NHOOK_NOSU_FIND_THREAD_AND_UPGRADE_ERROR 0x4504
+#define NHOOK_NTU_READ_MEMORY_ERROR 0x4505
+
+struct nhook {
+	void *function;
+	void *hook_function;
+	uint8_t arg_count;
+
+	uint8_t mem[16];
+	uint8_t affected_length;
+};
+
+typedef struct nhook nhook_t;
+
+#define NHOOK_SET_INVALID(nhook) ((nhook)->function = NULL)
+#define NHOOK_IS_VALID(nhook) ((nhook)->function != NULL)
+
+#define NHOOK_MANAGER_MAX_HOOK_COUNT 16
+
+struct nhook_manager {
+	DWORD pid;
+
+	uint16_t thread_count;
+	HANDLE *threads;
+
+	uint16_t max_hook_count;
+};
+
+typedef struct nhook_manager nhook_manager_t;
+
+#define NHOOK_MANAGER_GET_HOOK(nhook_manager, index) \
+	(((nhook_t *)(((nhook_manager) + 1))) + i)
+
+nerror_t NHOOK_API nh_register_threads(nhook_manager_t *nhook_manager,
+				       HANDLE *thread, uint16_t thread_count);
+
+nerror_t NHOOK_API nh_register_thread(nhook_manager_t *nhook_manager,
+				      HANDLE thread);
+
+nerror_t NHOOK_API nh_register_working_threads(nhook_manager_t *nhook_manager);
+
+nhook_t *NHOOK_API nh_find(nhook_manager_t *nhook_manager, void *hook_function);
+
+nhook_manager_t *NHOOK_API nh_create_manager(DWORD pid,
+					     uint16_t max_hook_count);
+
+nerror_t NHOOK_API nh_install(nhook_manager_t *nhook_manager, void *function,
+			      void *hook_function, uint16_t arg_count);
+
+nerror_t NHOOK_API nh_uninstall_ex(nhook_manager_t *nhook_manager,
+				   nhook_t *nhook);
+
+nerror_t NHOOK_API nh_uninstall(nhook_manager_t *nhook_manager,
+				void *hook_function);
+
+nerror_t NHOOK_API nh_trampoline_ex(nhook_manager_t *nhook_manager,
+				    nhook_t *nhook);
+
+nerror_t NHOOK_API nh_trampoline(nhook_manager_t *nhook_manager,
+				 void *hook_function);
+
+void NHOOK_API nh_destroy(nhook_manager_t *nhook_manager);
+
 void NHOOK_API test();
 
 #endif // !__NHOOK_H__
