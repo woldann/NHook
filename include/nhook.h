@@ -37,14 +37,18 @@
 #define NHOOK_MAX_HOOK_ERROR 0x4503
 #define NHOOK_NOSU_FIND_THREAD_AND_UPGRADE_ERROR 0x4504
 #define NHOOK_NTU_READ_MEMORY_ERROR 0x4505
+#define NHOOK_CS_OPEN_ERROR 0x4506
+#define NHOOK_GET_KERNEL32_BASE_ERROR 0x4507
+#define NHOOK_GET_PROC_ADDRESS_ERROR 0x4508
+#define NHOOK_NTU_MALLOC_ERROR 0x4509
 
 struct nhook {
 	void *function;
 	void *hook_function;
 	uint8_t arg_count;
 
-	uint8_t mem[16];
 	uint8_t affected_length;
+	uint8_t mem[16];
 };
 
 typedef struct nhook nhook_t;
@@ -57,6 +61,8 @@ typedef struct nhook nhook_t;
 struct nhook_manager {
 	DWORD pid;
 
+	NMUTEX mutex;
+
 	uint16_t thread_count;
 	HANDLE *threads;
 
@@ -68,6 +74,17 @@ typedef struct nhook_manager nhook_manager_t;
 #define NHOOK_MANAGER_GET_HOOK(nhook_manager, index) \
 	(((nhook_t *)(((nhook_manager) + 1))) + i)
 
+void *NHOOK_API nh_get_kernel32_base();
+
+nerror_t NHOOK_API nh_global_init();
+
+BOOL NHOOK_API nh_virtual_protect(LPVOID lpAddress, SIZE_T dwSize,
+				  DWORD flNewProtect, PDWORD lpflOldProtect);
+
+SIZE_T NHOOK_API nh_virtual_query(LPVOID lpAddress,
+				  PMEMORY_BASIC_INFORMATION lpBuffer,
+				  SIZE_T dwLength);
+
 nerror_t NHOOK_API nh_register_threads(nhook_manager_t *nhook_manager,
 				       HANDLE *thread, uint16_t thread_count);
 
@@ -75,6 +92,9 @@ nerror_t NHOOK_API nh_register_thread(nhook_manager_t *nhook_manager,
 				      HANDLE thread);
 
 nerror_t NHOOK_API nh_register_working_threads(nhook_manager_t *nhook_manager);
+
+nhook_t *NHOOK_API nh_find_with_function(nhook_manager_t *nhook_manager,
+					 void *function);
 
 nhook_t *NHOOK_API nh_find(nhook_manager_t *nhook_manager, void *hook_function);
 

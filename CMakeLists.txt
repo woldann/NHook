@@ -7,6 +7,7 @@ add_subdirectory(Neptune)
 add_subdirectory(NThread)
 add_subdirectory(NThreadOSUtils)
 
+set(NHOOK_MODULE_RULES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/modulerules)
 set(NHOOK_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(NHOOK_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -38,6 +39,8 @@ add_library(${PROJECT_NAME_LOWER} SHARED ${NHOOK_SOURCES} ${CAPSTONE_SOURCES})
 set_target_properties(${PROJECT_NAME_LOWER} PROPERTIES OUTPUT_NAME "${LIBRARY_OUTPUT}")
 
 target_include_directories(${PROJECT_NAME_LOWER} PUBLIC ${NHOOK_INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME_LOWER} PUBLIC ${NHOOK_MODULE_RULES_DIR})
+
 target_include_directories(${PROJECT_NAME_LOWER} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/NThreadOSUtils/include")
 target_include_directories(${PROJECT_NAME_LOWER} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/NThread/include")
 target_include_directories(${PROJECT_NAME_LOWER} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Neptune/include")
@@ -46,7 +49,7 @@ target_link_libraries(${PROJECT_NAME_LOWER} PRIVATE NThreadOSUtils)
 
 target_compile_definitions(${PROJECT_NAME_LOWER} PRIVATE
   LOG_LEVEL_3
-  NEPTUNE_MODULERULES_HEADER="ntosutils_rules.h"
+  NEPTUNE_MODULERULES_HEADER="nhook_rules.h"
   LOG_ON_STDOUT=0
   NHOOK_EXPORTS
   LOG_FILE_PATH=L"nhook.log"

@@ -28,6 +28,47 @@
 
 #include <capstone/capstone.h>
 
+struct nhook_tfunctions {
+	void *VirtualProtect;
+	// void *VirtualQuery;
+} nh_funcs;
+
+void *NHOOK_API nh_get_kernel32_base()
+{
+	return (void *)GetModuleHandleA("kernel32");
+}
+
+nerror_t NHOOK_API nh_global_init()
+{
+	void *kernel32_base = nh_get_kernel32_base();
+	if (kernel32_base == NULL)
+		return GET_ERR(NHOOK_GET_KERNEL32_BASE_ERROR);
+
+	nh_funcs.VirtualProtect =
+		GetProcAddress(kernel32_base, "VirtualProtect");
+	// nh_funcs.VirtualQuery = GetProcAddress(libc_base, "VirtualQuery");
+
+	if (nh_funcs.VirtualProtect ==
+	    NULL /* || nh_funcs.VirtualQuery == NULL */)
+		return GET_ERR(NHOOK_GET_PROC_ADDRESS_ERROR);
+
+	return N_OK;
+}
+
+BOOL NHOOK_API nh_virtual_protect(LPVOID lpAddress, SIZE_T dwSize,
+				  DWORD flNewProtect, PDWORD lpflOldProtect)
+{
+	ntu_set_default_cc();
+	return (BOOL)(int64_t)ntu_ucall(nh_funcs.VirtualProtect, lpAddress,
+					dwSize, flNewProtect, lpflOldProtect);
+}
+//
+// SIZE_T NHOOK_API nh_virtual_query(LPVOID lpAddress, PMEMORY_BASIC_INFORMATION lpBuffer, SIZE_T dwLength)
+// {
+// 	ntu_set_default_cc();
+// 	return (BOOL) (int64_t)ntu_ucall(nh_funcs.VirtualQuery, lpAddress, lpBuffer, dwLength);
+// }
+
 nerror_t NHOOK_API nh_register_threads(nhook_manager_t *nhook_manager,
 				       HANDLE *threads, uint16_t thread_count)
 {
@@ -36,9 +77,15 @@ nerror_t NHOOK_API nh_register_threads(nhook_manager_t *nhook_manager,
 	uint16_t new_count = old_count + thread_count;
 
 	size_t new_size = sizeof(HANDLE) * new_count;
+
+	NMUTEX mutex = nhook_manager->mutex;
+	NMUTEX_LOCK(mutex);
+
 	void *new_threads = N_REALLOC(old_threads, new_size);
-	if (new_threads == NULL)
+	if (new_threads == NULL) {
+		NMUTEX_UNLOCK(mutex);
 		return GET_ERR(NHOOK_REALLOC_ERROR);
+	}
 
 	memcpy(new_threads + old_count, threads, thread_count * sizeof(HANDLE));
 
@@ -48,6 +95,7 @@ nerror_t NHOOK_API nh_register_threads(nhook_manager_t *nhook_manager,
 	nhook_manager->threads = new_threads;
 	nhook_manager->thread_count = new_count;
 
+	NMUTEX_UNLOCK(mutex);
 	return N_OK;
 }
 
@@ -82,6 +130,21 @@ nerror_t NHOOK_API nh_register_working_threads(nhook_manager_t *nhook_manager)
 	return ret;
 }
 
+nhook_t *NHOOK_API nh_find_with_function(nhook_manager_t *nhook_manager,
+					 void *function)
+{
+	for (uint16_t i = 0; i < nhook_manager->max_hook_count; i++) {
+		nhook_t *nhook = NHOOK_MANAGER_GET_HOOK(nhook_manager, i);
+		if (!NHOOK_IS_VALID(nhook))
+			continue;
+
+		if (nhook->function == function)
+			return nhook;
+	}
+
+	return NULL;
+}
+
 nhook_t *NHOOK_API nh_find(nhook_manager_t *nhook_manager, void *hook_function)
 {
 	for (uint16_t i = 0; i < nhook_manager->max_hook_count; i++) {
@@ -104,12 +167,17 @@ nhook_manager_t *NHOOK_API nh_create_manager(DWORD pid, uint16_t max_hook_count)
 	if (manager == NULL)
 		return NULL;
 
+	NMUTEX_INIT(manager->mutex);
+	if (manager->mutex == NULL)
+		goto nh_create_manager_return_error;
+
 	manager->max_hook_count = max_hook_count;
 	manager->pid = pid;
 
 	manager->thread_count = 0;
 	manager->threads = N_ALLOC(0);
 	if (manager->threads == NULL) {
+nh_create_manager_return_error:
 		nh_destroy(manager);
 		return NULL;
 	}
@@ -125,7 +193,11 @@ nhook_manager_t *NHOOK_API nh_create_manager(DWORD pid, uint16_t max_hook_count)
 nerror_t NHOOK_API nh_install(nhook_manager_t *nhook_manager, void *function,
 			      void *hook_function, uint16_t arg_count)
 {
+	nerror_t ret;
 	nhook_t *nhook = NULL;
+	NMUTEX mutex = nhook_manager->mutex;
+
+	NMUTEX_LOCK(mutex);
 
 	for (uint16_t i = 0; i < nhook_manager->max_hook_count; i++) {
 		nhook_t *nh = NHOOK_MANAGER_GET_HOOK(nhook_manager, i);
@@ -135,16 +207,18 @@ nerror_t NHOOK_API nh_install(nhook_manager_t *nhook_manager, void *function,
 		}
 	}
 
-	if (nhook == NULL)
-		return GET_ERR(NHOOK_MAX_HOOK_ERROR);
+	if (nhook == NULL) {
+		ret = GET_ERR(NHOOK_MAX_HOOK_ERROR);
+		goto nh_install_return_without_ntu_destroy;
+	}
 
 	csh handle;
 	cs_insn *insn;
 
 	cs_err err = cs_open(CS_ARCH_X86, CS_MODE_64, &handle);
 	if (err != CS_ERR_OK) {
-		LOG_INFO("Failed on cs_open(): %s", cs_strerror(err));
-		return 0;
+		ret = GET_ERR(NHOOK_CS_OPEN_ERROR);
+		goto nh_install_return_without_ntu_destroy;
 	}
 
 	nhook->function = function;
@@ -153,20 +227,29 @@ nerror_t NHOOK_API nh_install(nhook_manager_t *nhook_manager, void *function,
 	if (HAS_ERR(nosu_find_thread_and_upgrade(nhook_manager->pid)))
 		return GET_ERR(NHOOK_NOSU_FIND_THREAD_AND_UPGRADE_ERROR);
 
+	DWORD old_protect;
+	void *old_protect_addr = ntu_malloc(sizeof(old_protect));
+	if (old_protect_addr == NULL) {
+		ret = GET_ERR(NHOOK_NTU_MALLOC_ERROR);
+		goto nh_install_return;
+	}
+
 	void *mem = nhook->mem;
-	if (HAS_ERR(ntu_read_memory(function, mem, 2)))
-		return GET_ERR(NHOOK_NTU_READ_MEMORY_ERROR);
+	uint16_t sleep_gadget = SLEEP_OPCODE;
 
-	LOG_INFO("function=%p", function);
-	LOG_INFO("%02X %02X", ((uint8_t *)mem)[0], ((uint8_t *)mem)[1]);
+	ret = ntu_read_memory(function, mem, 2);
+	if (HAS_ERR(ret))
+		goto nh_install_return;
+
 	int8_t count = cs_disasm(handle, mem, 2, (uint64_t)mem, 2, &insn);
-	LOG_INFO("count=%d", count);
 
+	uint8_t affected_length;
 	if (count == 1 && insn[0].size == 1) {
 		int8_t i;
 		for (i = 2; i < 15; i++) {
-			if (HAS_ERR(ntu_read_memory(function + i, mem + i, 1)))
-				return GET_ERR(NHOOK_NTU_READ_MEMORY_ERROR);
+			ret = ntu_read_memory(function + i, mem + i, 1);
+			if (HAS_ERR(ret))
+				goto nh_install_return;
 
 			count = cs_disasm(handle, mem + 1, i, (uint64_t)mem + 1,
 					  1, &insn);
@@ -174,29 +257,51 @@ nerror_t NHOOK_API nh_install(nhook_manager_t *nhook_manager, void *function,
 				break;
 		}
 
-		nhook->affected_length = i + 1;
+		affected_length = i + 1;
 	} else if (count == 0) {
 		int8_t i;
 		for (i = 2; i < 15; i++) {
-			if (HAS_ERR(ntu_read_memory(function + i, mem + i, 1)))
-				return GET_ERR(NHOOK_NTU_READ_MEMORY_ERROR);
+			ret = ntu_read_memory(function + i, mem + i, 1);
+			if (HAS_ERR(ret))
+				goto nh_install_return;
 
 			count = cs_disasm(handle, mem, i + 1, (uint64_t)mem, 1,
 					  &insn);
+
 			if (count > 0)
 				break;
 		}
 
-		nhook->affected_length = i + 1;
+		affected_length = i + 1;
 	} else
-		nhook->affected_length = 2;
-
-	LOG_INFO("Affected Length(%d)", nhook->affected_length);
+		affected_length = 2;
 
 	cs_close(&handle);
 
+	nh_virtual_protect(function, affected_length, PAGE_EXECUTE_READWRITE,
+			   old_protect_addr);
+
+	ret = ntu_read_memory(old_protect_addr, &old_protect,
+			      sizeof(old_protect));
+	if (HAS_ERR(ret))
+		goto nh_install_return;
+
+	ret = ntu_write_with_memset_dest(function, &sleep_gadget,
+					 sizeof(sleep_gadget), mem);
+	if (HAS_ERR(ret))
+		goto nh_install_return;
+
+	nh_virtual_protect(function, affected_length, old_protect,
+			   old_protect_addr);
+	ntu_free(old_protect_addr);
+
+	nhook->affected_length = affected_length;
+
+nh_install_return:
 	ntu_destroy();
-	return N_OK;
+nh_install_return_without_ntu_destroy:
+	NMUTEX_UNLOCK(mutex);
+	return ret;
 }
 
 nerror_t NHOOK_API nh_uninstall_ex(nhook_manager_t *nhook_manager,
@@ -232,6 +337,48 @@ nerror_t NHOOK_API nh_trampoline(nhook_manager_t *nhook_manager,
 	return nh_trampoline_ex(nhook_manager, hook_function);
 }
 
+nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager)
+{
+	nerror_t ret;
+
+	NMUTEX mutex = nhook_manager->mutex;
+	NMUTEX_LOCK(mutex);
+
+	uint16_t count = nhook_manager->thread_count;
+	CONTEXT ctx;
+	ctx.ContextFlags = CONTEXT_CONTROL;
+
+	uint16_t i = 0;
+	while (i < count) {
+		HANDLE thread = nhook_manager->threads[i];
+		if (!GetThreadContext(thread, &ctx)) {
+			void *pos = nhook_manager->threads + i;
+			memcpy(pos, pos + 1, count - i - 1);
+			count--;
+		} else {
+			i++;
+
+			void *rip = (void *)ctx.Rip;
+			nhook_t *nhook =
+				nh_find_with_function(nhook_manager, rip);
+			if (nhook == NULL)
+				continue;
+
+			if (HAS_ERR(nosu_upgrade(thread))) {
+				NMUTEX_UNLOCK(mutex);
+				return GET_ERR(NHOOK_NOSU_UPGRADE_ERROR);
+			}
+
+			ntu_destroy();
+		}
+	}
+
+	nhook_manager->thread_count = count;
+
+	NMUTEX_UNLOCK(mutex);
+	return N_OK;
+}
+
 void NHOOK_API nh_destroy(nhook_manager_t *nhook_manager)
 {
 	if (nhook_manager == NULL)
@@ -240,6 +387,11 @@ void NHOOK_API nh_destroy(nhook_manager_t *nhook_manager)
 	for (uint16_t i = 0; i < nhook_manager->max_hook_count; i++) {
 		nhook_t *nhook = NHOOK_MANAGER_GET_HOOK(nhook_manager, i);
 		nh_uninstall(nhook_manager, nhook);
+	}
+
+	if (nhook_manager->mutex != NULL) {
+		NMUTEX_DESTROY(nhook_manager->mutex);
+		nhook_manager->mutex = NULL;
 	}
 
 	if (nhook_manager->threads != NULL) {
@@ -259,26 +411,36 @@ void my_memcpy(void *addr1, void *addr2, size_t len)
 
 void NHOOK_API test()
 {
-	LOG_INFO("Creating manager");
 	ntid_t tid = nosu_dummy_thread();
 
 	HANDLE thread = OpenThread(THREAD_QUERY_INFORMATION, FALSE, tid);
 	if (thread == NULL) {
 		LOG_INFO("OpenThread failed");
+		nosu_kill_dummy(tid);
 		return;
 	}
 
 	DWORD pid = GetProcessIdOfThread(thread);
 
 	nhook_manager_t *man = nh_create_manager(pid, 8);
-	nh_register_working_threads(man);
 	if (man == NULL) {
-		LOG_ERROR("Manager is NULL!");
+		LOG_ERROR("nh_create_manager failed");
+		nosu_kill_dummy(tid);
 		return;
 	}
 
-	void *libc = ntu_get_libc_base();
-	void *memcpy = GetProcAddress(libc, "memcpy");
+	if (HAS_ERR(nh_register_working_threads(man))) {
+		LOG_INFO("nh_register_working_threads failed");
+		nosu_kill_dummy(tid);
+		return;
+	}
 
-	LOG_INFO("error=%d", nh_install(man, memcpy, (void *)my_memcpy, 3));
+	void *mod = nh_get_kernel32_base();
+	void *func = GetProcAddress(mod, "WaitForSingleObject");
+
+	LOG_INFO("error=%d", nh_install(man, func, (void *)my_memcpy, 3));
+	while (true) {
+		nh_update(man);
+		Sleep(10);
+	}
 }
