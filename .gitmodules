@@ -1,12 +1,12 @@
-[submodule "NThreadOSUtils"]
-	path = NThreadOSUtils
+[submodule "submodules/NThreadOSUtils"]
+	path = submodules/NThreadOSUtils
 	url = https://github.com/woldann/NThreadOSUtils
-[submodule "NThread"]
-	path = NThread
+[submodule "submodules/NThread"]
+	path = submodules/NThread
 	url = https://github.com/woldann/NThread
-[submodule "Neptune"]
-	path = Neptune
+[submodule "submodules/Neptune"]
+	path = submodules/Neptune
 	url = https://github.com/woldann/Neptune
-[submodule "capstone"]
-	path = capstone
+[submodule "submodules/capstone"]
+	path = submodules/capstone
 	url = https://github.com/capstone-engine/capstone
