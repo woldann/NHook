@@ -25,6 +25,7 @@
 #include "nhook.h"
 #include "log.h"
 #include "nmem.h"
+#include "ntmem.h"
 
 #include <capstone/capstone.h>
 
@@ -191,7 +192,7 @@ nh_create_manager_return_error:
 }
 
 nerror_t NHOOK_API nh_install(nhook_manager_t *nhook_manager, void *function,
-			      void *hook_function, uint16_t arg_count)
+			      void *hook_function, uint8_t arg_count)
 {
 	nerror_t ret;
 	nhook_t *nhook = NULL;
@@ -223,6 +224,11 @@ nerror_t NHOOK_API nh_install(nhook_manager_t *nhook_manager, void *function,
 
 	nhook->function = function;
 	nhook->hook_function = hook_function;
+	nhook->arg_count = arg_count;
+
+#ifndef NTU_GLOBAL_CC
+	nhook->cc = NTUCC_DEFAULT_CC;
+#endif /* ifndef NTU_GLOBAL_CC */
 
 	if (HAS_ERR(nosu_find_thread_and_upgrade(nhook_manager->pid)))
 		return GET_ERR(NHOOK_NOSU_FIND_THREAD_AND_UPGRADE_ERROR);
@@ -337,6 +343,96 @@ nerror_t NHOOK_API nh_trampoline(nhook_manager_t *nhook_manager,
 	return nh_trampoline_ex(nhook_manager, hook_function);
 }
 
+void NTHREAD_API nh_get_reg_args(uint8_t arg_count, void **args)
+{
+	ntutils_t *ntutils = ntu_get();
+	nthread_t *nthread = &ntutils->nthread;
+
+#ifdef NTU_GLOBAL_CC
+	ntucc_t sel_cc = NTU_GLOBAL_CC;
+#else /* ifdnef NTU_GLOBAL_CC */
+	ntucc_t sel_cc = ntutils->sel_cc;
+#endif /* ifndef NTU_GLOBAL_CC */
+
+	for (int8_t i = 0; i < 8 && i < arg_count; i++) {
+		int8_t reg_index = NTUCC_GET_ARG(sel_cc, i);
+		if (reg_index == 0)
+			continue;
+
+		nthread_reg_offset_t off =
+			NTHREAD_REG_INDEX_TO_OFFSET(reg_index);
+
+		args[i] = NTHREAD_GET_OREG(nthread, off);
+	}
+}
+
+nerror_t NTHREAD_API nh_get_args(uint8_t arg_count, void **args)
+{
+	ntutils_t *ntutils = ntu_get();
+	nthread_t *nthread = &ntutils->nthread;
+
+	RET_ERR(nthread_get_regs(nthread));
+
+#ifdef NTU_GLOBAL_CC
+	ntucc_t sel_cc = NTU_GLOBAL_CC;
+#else /* ifdnef NTU_GLOBAL_CC */
+	ntucc_t sel_cc = ntutils->sel_cc;
+#endif /* ifndef NTU_GLOBAL_CC */
+
+#ifdef LOG_LEVEL_3
+	LOG_INFO("ntu_get_args(cc=%p, nthread_id=%ld, arg_count=%d, args=%p)",
+		 sel_cc, NTHREAD_GET_ID(nthread), arg_count, args);
+#endif /* ifdef LOG_LEVEL_3 */
+
+	int8_t reg_arg_count = 0;
+	for (int8_t i = 0; i < 8; i++) {
+		int8_t reg_index = NTUCC_GET_ARG(sel_cc, i);
+		if (reg_index != 0)
+			reg_arg_count++;
+	}
+
+	if (reg_arg_count > arg_count)
+		reg_arg_count = arg_count;
+
+	nh_get_reg_args(reg_arg_count, args);
+
+	uint8_t push_arg_count = arg_count - reg_arg_count;
+	if (push_arg_count > 0) {
+		void *rsp = NTHREAD_GET_OREG(nthread, NTHREAD_RSP);
+		void *wpos = rsp + NTUCC_GET_STACK_ADD(sel_cc);
+
+		ntmem_t *ntmem = ntutils->stack_helper;
+		NTM_SET_REMOTE(ntmem, wpos);
+
+		nttunnel_t *nttunnel = ntu_nttunnel();
+		void **push_args = (void *)ntm_pull_with_tunnel_ex(
+			ntmem, nttunnel, sizeof(void *) * push_arg_count);
+
+		uint8_t i;
+
+		bool reverse = (sel_cc & NTUCC_REVERSE_OP) != 0;
+		if (reverse) {
+			for (uint8_t i = 0; i < push_arg_count; i++)
+				args[reg_arg_count + i] =
+					push_args[push_arg_count - i - 1];
+		} else
+			memcpy(args + reg_arg_count, push_args,
+			       push_arg_count * sizeof(void *));
+	}
+
+	return N_OK;
+}
+
+static void nh_remove_thread(nhook_manager_t *nhook_manager, uint16_t index)
+{
+	void *pos = nhook_manager->threads + index;
+	memcpy(pos, pos + 1, nhook_manager->thread_count - index - 1);
+	CloseHandle(nhook_manager->threads[index]);
+	nhook_manager->thread_count--;
+}
+
+void nh_call_dynamic_func(void *func, uint8_t arg_count, void **args);
+
 nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager)
 {
 	nerror_t ret;
@@ -344,36 +440,53 @@ nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager)
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);
 
-	uint16_t count = nhook_manager->thread_count;
 	CONTEXT ctx;
 	ctx.ContextFlags = CONTEXT_CONTROL;
 
 	uint16_t i = 0;
-	while (i < count) {
+	while (i < nhook_manager->thread_count) {
 		HANDLE thread = nhook_manager->threads[i];
 		if (!GetThreadContext(thread, &ctx)) {
-			void *pos = nhook_manager->threads + i;
-			memcpy(pos, pos + 1, count - i - 1);
-			count--;
+nh_update_remove_thread:
+			nh_remove_thread(nhook_manager, i);
 		} else {
-			i++;
-
 			void *rip = (void *)ctx.Rip;
+
 			nhook_t *nhook =
 				nh_find_with_function(nhook_manager, rip);
-			if (nhook == NULL)
-				continue;
 
-			if (HAS_ERR(nosu_upgrade(thread))) {
-				NMUTEX_UNLOCK(mutex);
-				return GET_ERR(NHOOK_NOSU_UPGRADE_ERROR);
-			}
+			if (nhook == NULL)
+				goto nh_update_loop_end;
+
+			ntid_t tid = GetThreadId(thread);
+
+			if (HAS_ERR(nosu_attach(tid)))
+				goto nh_update_remove_thread;
+
+#ifdef NTU_GLOBAL_CC
+			ntu_set_cc();
+#endif /* ifdef NTU_GLOBAL_CC */
+
+			uint8_t arg_count = nhook->arg_count;
+			void **args = N_ALLOC(sizeof(void *) * arg_count);
+			if (HAS_ERR(nh_get_args(arg_count, args)))
+				goto nh_update_remove_thread;
+
+			void *func = nhook->hook_function;
+
+			nh_call_dynamic_func(func, arg_count, args);
 
 			ntu_destroy();
+
+			void *ret_addr = nosu_push_addr + 1;
+			ctx.Rip = (DWORD64)ret_addr;
+			if (!SetThreadContext(thread, &ctx))
+				goto nh_update_remove_thread;
+
+nh_update_loop_end:
+			i++;
 		}
 	}
-
-	nhook_manager->thread_count = count;
 
 	NMUTEX_UNLOCK(mutex);
 	return N_OK;
@@ -402,11 +515,10 @@ void NHOOK_API nh_destroy(nhook_manager_t *nhook_manager)
 	N_FREE(nhook_manager);
 }
 
-void my_memcpy(void *addr1, void *addr2, size_t len)
+void my_wait_for_single_object(void *addr1, void *addr2)
 {
 	LOG_INFO("addr1=%p", addr1);
 	LOG_INFO("addr2=%p", addr2);
-	LOG_INFO("len=%p", len);
 }
 
 void NHOOK_API test()
@@ -438,7 +550,8 @@ void NHOOK_API test()
 	void *mod = nh_get_kernel32_base();
 	void *func = GetProcAddress(mod, "WaitForSingleObject");
 
-	LOG_INFO("error=%d", nh_install(man, func, (void *)my_memcpy, 3));
+	LOG_INFO("error=%d",
+		 nh_install(man, func, (void *)my_wait_for_single_object, 2));
 	while (true) {
 		nh_update(man);
 		Sleep(10);

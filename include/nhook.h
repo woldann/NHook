@@ -41,10 +41,16 @@
 #define NHOOK_GET_KERNEL32_BASE_ERROR 0x4507
 #define NHOOK_GET_PROC_ADDRESS_ERROR 0x4508
 #define NHOOK_NTU_MALLOC_ERROR 0x4509
+#define NHOOK_NOSU_UPGRADE_ERROR 0x450A
+#define NHOOK_NOSU_ATTACH_ERROR 0x450A
 
 struct nhook {
 	void *function;
 	void *hook_function;
+
+#ifndef NTU_GLOBAL_CC
+	ntucc_t cc;
+#endif // !NTU_GLOBAL_CC
 	uint8_t arg_count;
 
 	uint8_t affected_length;
@@ -102,7 +108,7 @@ nhook_manager_t *NHOOK_API nh_create_manager(DWORD pid,
 					     uint16_t max_hook_count);
 
 nerror_t NHOOK_API nh_install(nhook_manager_t *nhook_manager, void *function,
-			      void *hook_function, uint16_t arg_count);
+			      void *hook_function, uint8_t arg_count);
 
 nerror_t NHOOK_API nh_uninstall_ex(nhook_manager_t *nhook_manager,
 				   nhook_t *nhook);
