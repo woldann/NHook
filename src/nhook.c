@@ -772,6 +772,10 @@ nerror_t NTHREAD_API nh_get_args(uint8_t arg_count, void **args)
 void *NHOOK_API nh_trampoline_ex_v(nhook_manager_t *nhook_manager,
 				   nhook_t *nhook, va_list args)
 {
+#ifndef NTUTILS_GLOBAL_CC
+	ntu_set_cc(nhook->cc);
+#endif /* ifndef NTUTILS_GLOBAL_CC */
+
 	uint8_t arg_count = nhook->arg_count;
 
 	va_list copy;
@@ -797,8 +801,13 @@ void *NHOOK_API nh_trampoline_ex_v(nhook_manager_t *nhook_manager,
 
 	void *call = func + len;
 
+	void *reg_args[8];
+	nh_get_reg_args(arg_count, reg_args);
+
 	if (HAS_ERR(ntu_set_args_v(arg_count, args)))
 		return NULL;
+
+	ntu_set_reg_args(arg_count, reg_args);
 
 	if (rip >= func && rip < call)
 		NTHREAD_SET_REG(nthread, NTHREAD_RIP, call);
