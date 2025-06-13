@@ -1,6 +1,3 @@
-[submodule "submodules/NThreadOSUtils"]
-	path = submodules/NThreadOSUtils
-	url = https://github.com/woldann/NThreadOSUtils
 [submodule "submodules/NThread"]
 	path = submodules/NThread
 	url = https://github.com/woldann/NThread
@@ -10,3 +7,8 @@
 [submodule "submodules/capstone"]
 	path = submodules/capstone
 	url = https://github.com/capstone-engine/capstone
+	branch = v4
+[submodule "submodules/NThreadOSUtils"]
+	path = submodules/NThreadOSUtils
+	url = https://github.com/woldann/NThreadOSUtils
+	branch = main-to-tests

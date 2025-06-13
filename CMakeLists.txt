@@ -12,19 +12,17 @@ file(GLOB_RECURSE NHOOK_SOURCES CONFIGURE_DEPENDS ${NHOOK_SOURCE_DIR}/*.c)
 
 set(CAPSTONE_SOURCES
     submodules/capstone/cs.c
+    submodules/capstone/arch/X86/X86ATTInstPrinter.c
     submodules/capstone/arch/X86/X86Disassembler.c
     submodules/capstone/arch/X86/X86DisassemblerDecoder.c
+    submodules/capstone/arch/X86/X86IntelInstPrinter.c
     submodules/capstone/arch/X86/X86Mapping.c
     submodules/capstone/arch/X86/X86Module.c
-    submodules/capstone/arch/X86/X86InstPrinterCommon.c
-    submodules/capstone/arch/X86/X86IntelInstPrinter.c
-    submodules/capstone/arch/X86/X86ATTInstPrinter.c
     submodules/capstone/MCInst.c
     submodules/capstone/MCRegisterInfo.c
     submodules/capstone/MCInstrDesc.c
     submodules/capstone/utils.c
     submodules/capstone/SStream.c
-    submodules/capstone/Mapping.c
 )
 
 set(ABSOLUTE_CAPSTONE_SOURCES "")

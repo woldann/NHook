@@ -23,15 +23,15 @@
  */
 
 #include "nhook.h"
-#include "log.h"
+#include "nerror.h"
 #include "nmem.h"
-#include "nthread.h"
 #include "ntmem.h"
 
 #include "ntutils.h"
 #include <capstone/capstone.h>
 
 #include "trampoline.h"
+#include <winnt.h>
 
 struct nhook_tfunctions {
 	void *VirtualProtect;
@@ -265,9 +265,10 @@ static nerror_t nh_transfer_threads(nhook_manager_t *nhook_manager,
 	HANDLE thread;
 
 	CONTEXT ctx;
-	void *rip;
+	ctx.ContextFlags = CONTEXT_CONTROL;
 
 	void *pos = nhook->function + 1;
+	void *rip;
 
 	uint16_t count = nhook_manager->thread_count;
 	uint16_t i;
@@ -391,9 +392,10 @@ nerror_t NHOOK_API nh_enable_ex(nhook_manager_t *nhook_manager, nhook_t *nhook)
 		goto nh_enable_ex_resume_return;
 	}
 
-	if (cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON) != CS_ERR_OK) {
-		ret = GET_ERR(NHOOK_CS_DETAIL_ERROR);
-		goto nh_enable_ex_cs_close_and_return;
+	err = cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
+	if (err != CS_ERR_OK) {
+		ret = GET_ERR(NHOOK_CS_OPTION_ERROR);
+		goto nh_enable_ex_resume_return;
 	}
 
 	ret = ntu_read_memory(func, mem, 2);
@@ -412,7 +414,7 @@ nh_enable_ex_cs_close_and_return:
 	int8_t count = cs_disasm(handle, mem, 2, (uint64_t)mem, 2, &insn);
 	if (count == 1) {
 		if (!add_insn(nhook->tramp, insn))
-			goto nh_enable_ex_cs_close_and_return;
+			goto nh_enable_ex_add_insn_error;
 
 		if (insn[0].size == 1) {
 			int8_t i;
@@ -426,7 +428,7 @@ nh_enable_ex_cs_close_and_return:
 
 				if (count > 0) {
 					if (!add_insn(nhook->tramp, insn))
-						goto nh_enable_ex_cs_close_and_return;
+						goto nh_enable_ex_add_insn_error;
 
 					break;
 				}
@@ -445,8 +447,11 @@ nh_enable_ex_cs_close_and_return:
 					  &insn);
 
 			if (count > 0) {
-				if (!add_insn(nhook->tramp, insn))
+				if (!add_insn(nhook->tramp, insn)) {
+nh_enable_ex_add_insn_error:
+					ret = GET_ERR(NHOOK_ADD_INSN_ERROR);
 					goto nh_enable_ex_cs_close_and_return;
+				}
 
 				break;
 			}
@@ -455,10 +460,10 @@ nh_enable_ex_cs_close_and_return:
 		len = i + 1;
 	} else {
 		if (!add_insn(nhook->tramp, insn))
-			goto nh_enable_ex_cs_close_and_return;
+			goto nh_enable_ex_add_insn_error;
 
 		if (!add_insn(nhook->tramp, insn + 1))
-			goto nh_enable_ex_cs_close_and_return;
+			goto nh_enable_ex_add_insn_error;
 		len = 2;
 	}
 

@@ -64,6 +64,8 @@ void thread_loop()
 	}
 }
 
+#include <capstone/capstone.h>
+
 int main(int argc, char *argv[])
 {
 	void *mod = ntu_get_libc_base();
@@ -87,14 +89,21 @@ int main(int argc, char *argv[])
 	LOG_INFO("Created Thread Id=%ld", GetThreadId(cr_thread));
 
 	DWORD pid = GetCurrentProcessId();
-	man = nh_create_manager(pid, 1);
+	man = nh_create_manager(pid, 2);
 	if (man == NULL) {
 		LOG_ERROR("nh_create_manager failed");
 		return 0x03;
 	}
 
-	LOG_INFO("error=%p", nh_create(man, strlen_func, (void *)my_strlen, 1));
-	LOG_INFO("nh_enable_all return=%p", nh_enable_all(man));
+	if (HAS_ERR(nh_create(man, strlen_func, (void *)my_strlen, 1))) {
+		LOG_ERROR("nh_create failed");
+    return 0x04;
+  }
+
+	if (HAS_ERR(nh_enable_all(man))) {
+		LOG_ERROR("nh_enable_all failed");
+    return 0x05;
+  }
 
 	while (nh_manager_get_enabled_count(man) > 0) {
 		nh_update(man);

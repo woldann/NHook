@@ -23,6 +23,7 @@
  */
 
 #include "trampoline.h"
+#include "nerror.h"
 #include "nmem.h"
 
 #include "nthread.h"
@@ -1898,6 +1899,8 @@ static void proc_insns_select(void *args)
 
 bool add_insn(trampoline_t *tramp, cs_insn *insn)
 {
+	bool ret;
+
 	insn_args_rw_t *f_args = &tramp->f_args;
 	insn_args_rw_t *args;
 
@@ -1910,11 +1913,17 @@ bool add_insn(trampoline_t *tramp, cs_insn *insn)
 		insn_args_rw_t *s_args = &tramp->s_args;
 		if (s_args->func == NULL)
 			args = s_args;
-		else
-			return false;
+		else {
+			ret = false;
+			goto add_insn_return;
+		}
 	}
 
-	return set_insn_args(args, insn) != NULL;
+	ret = set_insn_args(args, insn) != NULL;
+
+add_insn_return:
+	cs_free(insn, 1);
+	return ret;
 }
 
 void trampoline_simulate_insns(trampoline_t *tramp)
