@@ -1,6 +1,8 @@
 section .text
 global simulate_add
 global simulate_sub
+global simulate_inc
+global simulate_dec
 global simulate_xor
 global simulate_cmp
 global simulate_test
@@ -73,8 +75,74 @@ sub_8:
 flags_read:
     pushfq
     pop rax
-    ret
+    ret 
 
+simulate_inc:
+    movzx rax, r8b
+    cmp rax, 1
+    je  inc_1
+    cmp rax, 2
+    je  inc_2
+    cmp rax, 4
+    je  inc_4
+    cmp rax, 8
+    je  inc_8
+
+    xor eax, eax
+    ret
+inc_1:
+    inc cl
+    mov byte [r9], cl
+    jmp flags_read
+
+inc_2:
+    inc cx
+    mov word [r9], cx
+    jmp flags_read
+
+inc_4:
+    inc ecx
+    mov dword [r9], ecx
+    jmp flags_read
+
+inc_8:
+    inc rcx
+    mov qword [r9], rcx
+    jmp flags_read
+
+simulate_dec:
+    movzx rax, r8b
+    cmp rax, 1
+    je  dec_1
+    cmp rax, 2
+    je  dec_2
+    cmp rax, 4
+    je  dec_4
+    cmp rax, 8
+    je  dec_8
+
+    xor eax, eax
+    ret
+dec_1:
+    dec cl
+    mov byte [r9], cl
+    jmp flags_read
+
+dec_2:
+    dec cx
+    mov word [r9], cx
+    jmp flags_read
+
+dec_4:
+    dec ecx
+    mov dword [r9], ecx
+    jmp flags_read
+
+dec_8:
+    dec rcx
+    mov qword [r9], rcx
+    jmp flags_read
+    
 simulate_xor:
     movzx rax, r8b
     cmp rax, 1

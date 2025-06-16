@@ -97,13 +97,13 @@ int main(int argc, char *argv[])
 
 	if (HAS_ERR(nh_create(man, strlen_func, (void *)my_strlen, 1))) {
 		LOG_ERROR("nh_create failed");
-    return 0x04;
-  }
+		return 0x04;
+	}
 
 	if (HAS_ERR(nh_enable_all(man))) {
 		LOG_ERROR("nh_enable_all failed");
-    return 0x05;
-  }
+		return 0x05;
+	}
 
 	while (nh_manager_get_enabled_count(man) > 0) {
 		nh_update(man);

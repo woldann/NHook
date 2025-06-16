@@ -73,6 +73,16 @@ struct sub_args {
 	int8_t size;
 };
 
+struct inc_args {
+	union op_value op_value;
+	int8_t size;
+};
+
+struct dec_args {
+	union op_value op_value;
+	int8_t size;
+};
+
 struct xor_args {
 	union op_value f_op_value;
 	union op_value s_op_value;
@@ -120,6 +130,8 @@ struct movzx_args {
 		struct call_args call;   \
 		struct add_args add;     \
 		struct sub_args sub;     \
+		struct inc_args inc;     \
+		struct dec_args dec;     \
 		struct xor_args xor ;    \
 		struct cmp_args cmp;     \
 		struct test_args test;   \

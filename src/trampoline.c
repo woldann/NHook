@@ -7,7 +7,7 @@
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-* copies of the Software, and to permit persons to whom the Software is
+ * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  * 
  * The above copyright notice and this permission notice shall be included in all
@@ -16,14 +16,13 @@
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
 
 #include "trampoline.h"
-#include "nerror.h"
 #include "nmem.h"
 
 #include "nthread.h"
@@ -259,7 +258,7 @@ static void *get_op_value(union op_value *op_value)
 	return op_value->imm;
 }
 
-static bool set_op_value_args(union op_value *op_value, cs_x86_op *op)
+static int8_t set_op_value_args(union op_value *op_value, cs_x86_op *op)
 {
 	uint8_t type = op->type;
 	if (type == X86_OP_REG) {
@@ -271,9 +270,9 @@ static bool set_op_value_args(union op_value *op_value, cs_x86_op *op)
 		op_value->imm = (void *)op->imm;
 		op_value->mem.scale = -1;
 	} else
-		return false;
+		return 0;
 
-	return true;
+	return op->size;
 }
 
 static bool is_op_value_mem(union op_value *op_value)
@@ -292,19 +291,15 @@ static int8_t set_two_op_value_from_insn(union op_value *f_op_value,
 	cs_x86_op *f_op = &x86->operands[0];
 	cs_x86_op *s_op = &x86->operands[1];
 
-	int8_t ret = f_op->size;
-	if (ret != s_op->size)
-		return 0;
-
 	if (f_op->type == X86_OP_MEM && s_op->type == X86_OP_MEM)
 		return 0;
 
-	if (!set_op_value_args(f_op_value, f_op))
-		return 0;
-	if (!set_op_value_args(s_op_value, s_op))
+	size_t f_size = set_op_value_args(f_op_value, f_op);
+	size_t s_size = set_op_value_args(s_op_value, s_op);
+	if (f_size != s_size || f_size == 0 || s_size == 0)
 		return 0;
 
-	return ret;
+	return f_size;
 }
 
 static int8_t set_reg_n_op_value_from_insn(int *reg, union op_value *op_value,
@@ -317,11 +312,12 @@ static int8_t set_reg_n_op_value_from_insn(int *reg, union op_value *op_value,
 	cs_x86_op *f_op = &x86->operands[0];
 	cs_x86_op *s_op = &x86->operands[1];
 
-	*reg = f_op->reg;
-	if (!set_op_value_args(op_value, s_op))
+	int8_t size = set_op_value_args(op_value, s_op);
+	if (size == 0)
 		return 0;
 
-	return s_op->size;
+	*reg = f_op->reg;
+	return size;
 }
 
 static void proc_lea(insn_args_rw_t *args)
@@ -583,6 +579,130 @@ static bool set_sub_args(insn_args_rw_t *args, cs_insn *insn)
 
 	args->sub.size = size;
 	args->func = proc_sub;
+	return true;
+}
+
+DWORD simulate_inc(void *value, int8_t size, void **calc);
+
+#define INC_FLAGS_MASK 0x08D4 // 0000 1000 1101 0101 = CF, PF, AF, ZF, SF, OF
+
+static void proc_inc(insn_args_rw_t *args)
+{
+	ntutils_t *ntutils = ntu_get();
+	nthread_t *nthread = &ntutils->nthread;
+
+	union op_value *op_value = &args->inc.op_value;
+
+	void *address;
+	void *val = get_op_value(op_value);
+	bool is_type_mem = is_op_value_mem(op_value);
+	int8_t size = args->inc.size;
+
+	if (is_type_mem) {
+		int8_t read_size = args->read_size;
+		address = val;
+
+		if (read_size == 0) {
+			args->read = address;
+			args->read_size = size;
+			return;
+		}
+
+		val = args->read_val;
+	}
+
+	void *inc;
+	DWORD sim = simulate_inc(val, size, &inc);
+	if (is_type_mem) {
+		args->write = address;
+		args->write_val = inc;
+		args->write_size = size;
+	} else
+		set_reg_value(op_value->reg, inc);
+
+	CONTEXT *ctx = &nthread->n_ctx;
+	ctx->EFlags &= ~(INC_FLAGS_MASK);
+	ctx->EFlags |= (sim & INC_FLAGS_MASK);
+}
+
+static bool set_inc_args(insn_args_rw_t *args, cs_insn *insn)
+{
+	if (insn->id != X86_INS_INC)
+		return false;
+
+	cs_x86 *x86 = &insn->detail->x86;
+	if (x86->op_count != 1)
+		return false;
+
+	cs_x86_op *op = &x86->operands[0];
+	int8_t size = set_op_value_args(&args->inc.op_value, op);
+	if (size == 0)
+		return false;
+
+	args->inc.size = size;
+	args->func = proc_inc;
+	return true;
+}
+
+DWORD simulate_dec(void *value, int8_t size, void **calc);
+
+#define DEC_FLAGS_MASK 0x08D4 // 0000 1000 1101 0101 = CF, PF, AF, ZF, SF, OF
+
+static void proc_dec(insn_args_rw_t *args)
+{
+	ntutils_t *ntutils = ntu_get();
+	nthread_t *nthread = &ntutils->nthread;
+
+	union op_value *op_value = &args->dec.op_value;
+
+	void *address;
+	void *val = get_op_value(op_value);
+	bool is_type_mem = is_op_value_mem(op_value);
+	int8_t size = args->dec.size;
+
+	if (is_type_mem) {
+		int8_t read_size = args->read_size;
+		address = val;
+
+		if (read_size == 0) {
+			args->read = address;
+			args->read_size = size;
+			return;
+		}
+
+		val = args->read_val;
+	}
+
+	void *dec;
+	DWORD sim = simulate_dec(val, size, &dec);
+	if (is_type_mem) {
+		args->write = address;
+		args->write_val = dec;
+		args->write_size = size;
+	} else
+		set_reg_value(op_value->reg, dec);
+
+	CONTEXT *ctx = &nthread->n_ctx;
+	ctx->EFlags &= ~(DEC_FLAGS_MASK);
+	ctx->EFlags |= (sim & DEC_FLAGS_MASK);
+}
+
+static bool set_dec_args(insn_args_rw_t *args, cs_insn *insn)
+{
+	if (insn->id != X86_INS_DEC)
+		return false;
+
+	cs_x86 *x86 = &insn->detail->x86;
+	if (x86->op_count != 1)
+		return false;
+
+	cs_x86_op *op = &x86->operands[0];
+	int8_t size = set_op_value_args(&args->dec.op_value, op);
+	if (size == 0)
+		return false;
+
+	args->dec.size = size;
+	args->func = proc_dec;
 	return true;
 }
 
@@ -930,8 +1050,9 @@ static bool set_movzx_args(insn_args_rw_t *args, cs_insn *insn)
 
 typedef bool (*set_insn_args_fn)(insn_args_rw_t *insn_args, cs_insn *insn);
 set_insn_args_fn set_insn_args_funcs[] = {
-	set_lea_args,  set_jmp_args,  set_sub_args, set_xor_args,  set_cmp_args,
-	set_test_args, set_push_args, set_mov_args, set_movzx_args
+	set_lea_args,  set_jmp_args, set_sub_args,  set_inc_args,
+	set_sub_args,  set_xor_args, set_cmp_args,  set_test_args,
+	set_push_args, set_mov_args, set_movzx_args
 };
 
 static void *set_insn_args(insn_args_rw_t *insn_args, cs_insn *insn)

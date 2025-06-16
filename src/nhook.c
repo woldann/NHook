@@ -270,8 +270,8 @@ static nerror_t nh_transfer_threads(nhook_manager_t *nhook_manager,
 	void *pos = nhook->function + 1;
 	void *rip;
 
-	uint16_t count = nhook_manager->thread_count;
 	uint16_t i;
+	uint16_t count = nhook_manager->thread_count;
 	for (i = 0; i < count; i++) {
 		thread = threads[i];
 		if (thread == NULL)
