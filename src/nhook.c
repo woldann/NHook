@@ -25,6 +25,7 @@
 #include "nhook.h"
 #include "nerror.h"
 #include "nmem.h"
+#include "nmutex.h"
 #include "ntmem.h"
 
 #include "ntutils.h"
@@ -219,6 +220,30 @@ nerror_t NHOOK_API nh_create(nhook_manager_t *nhook_manager, void *function,
 #endif /* ifndef NTU_GLOBAL_CC */
 
 nh_install_return:
+	NMUTEX_UNLOCK(mutex);
+	return ret;
+}
+
+nerror_t NHOOK_API nh_create_with_mem(nhook_manager_t *nhook_manager,
+				      void *function, void *hook_function,
+				      uint8_t arg_count, void *mem,
+				      uint8_t affected_length)
+{
+	nerror_t ret;
+
+	NMUTEX mutex = nhook_manager->mutex;
+	NMUTEX_LOCK(mutex);
+
+	ret = nh_create(nhook_manager, function, hook_function, arg_count);
+	if (!HAS_ERR(ret)) {
+		nhook_t *nhook = nh_find(nhook_manager, hook_function);
+
+		nhook->affected_length = affected_length;
+		memcpy(nhook->mem, mem, affected_length);
+
+		nhook->flags |= NHOOK_FLAG_ENABLED;
+	}
+
 	NMUTEX_UNLOCK(mutex);
 	return ret;
 }
@@ -799,7 +824,7 @@ void *NHOOK_API nh_trampoline_ex_v(nhook_manager_t *nhook_manager,
 	void *rsp = nthread_stack_begin(nthread);
 	NTHREAD_SET_REG(nthread, NTHREAD_RSP, rsp - sizeof(func));
 	NTHREAD_SET_REG(nthread, NTHREAD_RIP, func);
-	trampoline_simulate_insns(nhook->tramp);
+	trampoline_proc(nhook->tramp);
 
 	void *rip = NTHREAD_GET_REG(nthread, NTHREAD_RIP);
 	uint8_t len = nhook->affected_length;

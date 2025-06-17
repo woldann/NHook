@@ -6,4 +6,3 @@ target_link_libraries(hook PRIVATE nhook)
 target_compile_definitions(hook PRIVATE
   LOG_LEVEL_1
 )
-

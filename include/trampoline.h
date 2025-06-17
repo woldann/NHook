@@ -213,7 +213,7 @@ struct trampoline {
 
 typedef struct trampoline trampoline_t;
 
-void trampoline_simulate_insns(trampoline_t *tramp);
+void trampoline_proc(trampoline_t *tramp);
 
 bool add_insn(trampoline_t *tramp, cs_insn *insn);
 

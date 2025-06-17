@@ -232,6 +232,26 @@ uint16_t NHOOK_API nh_manager_get_count(nhook_manager_t *nhook_manager);
 nerror_t NHOOK_API nh_create(nhook_manager_t *nhook_manager, void *function,
 			     void *hook_function, uint8_t arg_count);
 
+/** 
+ * @brief Creates a hook on an already hooked function with custom memory patch
+ *
+ * This function assumes the target function is already hooked (NHOOK_FLAG_ENABLED).
+ * Instead of automatically determining the hook bytes, it uses the provided memory
+ * patch and affected length.
+ * 
+ * @param nhook_manager Hook manager instance
+ * @param function Pointer to original function to hook 
+ * @param hook_function Pointer to the hook function
+ * @param arg_count Number of arguments of the function
+ * @param mem Pointer to custom memory patch bytes
+ * @param affected_length Length of memory patch in bytes
+ * @return nerror_t error code
+ */
+nerror_t NHOOK_API nh_create_with_mem(nhook_manager_t *nhook_manager,
+				      void *function, void *hook_function,
+				      uint8_t arg_count, void *mem,
+				      uint8_t affected_length);
+
 /**
  * @brief Enables a specific hook (extended version)
  * @param nhook_manager Hook manager instance

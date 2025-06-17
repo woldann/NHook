@@ -2047,7 +2047,7 @@ add_insn_return:
 	return ret;
 }
 
-void trampoline_simulate_insns(trampoline_t *tramp)
+void trampoline_proc(trampoline_t *tramp)
 {
 	tramp->func(tramp->args);
 }
