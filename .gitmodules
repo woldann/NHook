@@ -11,4 +11,4 @@
 [submodule "submodules/NThreadOSUtils"]
 	path = submodules/NThreadOSUtils
 	url = https://github.com/woldann/NThreadOSUtils
-	branch = main-to-tests
+	branch = main-no-tests

@@ -35,16 +35,15 @@ size_t strlen_counter = 0;
 
 size_t my_strlen(const char *str)
 {
-	LOG_INFO("my_strlen(str=%p)", str);
-
 	size_t ret = (size_t)nh_trampoline(man, my_strlen, str);
-	LOG_INFO("Trampoline Return(%p)", ret);
 
 	size_t len = sizeof(STR) - 1;
 	if (len != ret) {
 		LOG_ERROR("Trampoline Failed! %ld!=%ld", len, ret);
 		nh_disable_all(man);
 	}
+
+	LOG_INFO("my_strlen(%p)=%ld", str, ret);
 
 	if (strlen_counter >= 10)
 		nh_disable_all(man);
@@ -59,6 +58,7 @@ void thread_loop()
 
 	while (true) {
 		size_t ret = strlen_func(str1);
+		LOG_INFO("strlen(%p)=%ld", str1, ret);
 		for (uint8_t i = 0; i < 100; i++)
 			Sleep(1);
 	}
@@ -85,8 +85,6 @@ int main(int argc, char *argv[])
 		LOG_ERROR("CreateThread failed");
 		return 0x02;
 	}
-
-	LOG_INFO("Created Thread Id=%ld", GetThreadId(cr_thread));
 
 	DWORD pid = GetCurrentProcessId();
 	man = nh_create_manager(pid, 2);

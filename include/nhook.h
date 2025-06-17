@@ -47,6 +47,7 @@
 #endif // !NHOOK_EXPORTS
 
 #include "ntosutils.h"
+#include "nmutex.h"
 
 #define NHOOK_ERROR 0x4500
 #define NHOOK_FIND_ERROR 0x4501
@@ -93,7 +94,7 @@ struct nhook {
 	uint8_t affected_length; /**< Number of bytes overwritten in original function */
 	uint8_t mem[16]; /**< Backup of overwritten instruction bytes */
 
-	void *tramp; /**< Trampoline function pointer */
+	struct trampoline *tramp; /**< Trampoline struct */
 };
 
 typedef struct nhook nhook_t;
