@@ -488,7 +488,7 @@ nerror_t NHOOK_API nh_disable_all(nhook_manager_t *nhook_manager)
 			}
 		}
 
-		nerror_t ret = nh_disable_ex(nhook_manager, nhook);
+		ret = nh_disable_ex(nhook_manager, nhook);
 		if (HAS_ERR(ret))
 			break;
 	}
