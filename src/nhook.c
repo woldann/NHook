@@ -32,7 +32,7 @@
 #include <capstone/capstone.h>
 
 #include "trampoline.h"
-#include <winnt.h>
+#include "thread.h"
 
 struct nhook_tfunctions {
 	void *VirtualProtect;
@@ -121,37 +121,6 @@ nhook_t *NHOOK_API nh_find(nhook_manager_t *nhook_manager, void *hook_function)
 	return NULL;
 }
 
-static void nh_reset_threads(nhook_manager_t *nhook_manager,
-			     bool free_addresses)
-{
-	if (free_addresses) {
-		ntid_t *o_thread_ids = nhook_manager->o_thread_ids;
-		if (o_thread_ids != NULL)
-			N_FREE(o_thread_ids);
-
-		ntid_t *n_thread_ids = nhook_manager->n_thread_ids;
-		if (n_thread_ids != NULL)
-			N_FREE(n_thread_ids);
-
-		HANDLE *threads = nhook_manager->threads;
-		if (threads != NULL) {
-			uint16_t count = nhook_manager->thread_count;
-			uint16_t i;
-			for (i = 0; i < count; i++)
-				CloseHandle(threads[i]);
-
-			N_FREE(threads);
-		}
-	}
-
-	nhook_manager->o_thread_ids = NULL;
-	nhook_manager->n_thread_ids = NULL;
-	nhook_manager->threads = NULL;
-
-	nhook_manager->thread_ids_size = 0;
-	nhook_manager->thread_count = 0;
-}
-
 nhook_manager_t *NHOOK_API nh_create_manager(DWORD pid, uint16_t max_hook_count)
 {
 	size_t mem_len =
@@ -173,7 +142,7 @@ nhook_manager_t *NHOOK_API nh_create_manager(DWORD pid, uint16_t max_hook_count)
 	manager->mutex = mutex;
 	manager->suspend_count = 0;
 
-	nh_reset_threads(manager, false);
+	reset_threads(manager, false);
 
 	uint16_t i;
 	for (i = 0; i < max_hook_count; i++) {
@@ -390,7 +359,7 @@ static int8_t nh_toggle_init(nhook_manager_t *nhook_manager)
 {
 	int8_t ret = nh_force_ntutils(nhook_manager);
 	if (ret != FORCE_NTUTILS_FAIL) {
-		if (HAS_ERR(nh_suspend_threads(nhook_manager))) {
+		if (HAS_ERR(suspend_threads(nhook_manager))) {
 			if (ret == FORCE_NTUTILS_NEW)
 				ntu_destroy();
 
@@ -406,7 +375,7 @@ static void nh_toggle_destroy(nhook_manager_t *nhook_manager, int8_t fu)
 	if (fu == FORCE_NTUTILS_FAIL)
 		return;
 
-	nh_resume_threads(nhook_manager);
+	resume_threads(nhook_manager);
 
 	if (fu == FORCE_NTUTILS_NEW)
 		ntu_destroy();
@@ -441,7 +410,7 @@ nerror_t NHOOK_API nh_enable_ex(nhook_manager_t *nhook_manager, nhook_t *nhook)
 	uint8_t len = nhook->affected_length;
 	void *mem = nhook->mem;
 
-	ret = nh_suspend_threads(nhook_manager);
+	ret = suspend_threads(nhook_manager);
 	if (HAS_ERR(ret))
 		goto nh_enable_ex_return;
 
@@ -552,7 +521,7 @@ nh_enable_ex_read_mem_end:
 	nhook->flags |= NHOOK_FLAG_ENABLED;
 
 nh_enable_ex_resume_return:
-	nh_resume_threads(nhook_manager);
+	resume_threads(nhook_manager);
 
 nh_enable_ex_return:
 	ntu_free(old_protect_addr);
@@ -634,7 +603,7 @@ nerror_t NHOOK_API nh_disable_ex(nhook_manager_t *nhook_manager, nhook_t *nhook)
 		goto nh_disable_ex_return;
 	}
 
-	ret = nh_suspend_threads(nhook_manager);
+	ret = suspend_threads(nhook_manager);
 	if (HAS_ERR(ret))
 		goto nh_disable_ex_return;
 
@@ -659,7 +628,7 @@ nerror_t NHOOK_API nh_disable_ex(nhook_manager_t *nhook_manager, nhook_t *nhook)
 	nhook->flags &= ~(NHOOK_FLAG_ENABLED);
 
 nh_disable_ex_resume_return:
-	nh_resume_threads(nhook_manager);
+	resume_threads(nhook_manager);
 nh_disable_ex_return:
 	ntu_free(old_protect_addr);
 
@@ -918,260 +887,6 @@ void *NHOOK_API nh_trampoline(nhook_manager_t *nhook_manager,
 	return ret;
 }
 
-static nerror_t nh_update_threads(nhook_manager_t *nhook_manager)
-{
-	nerror_t ret = N_OK;
-
-	NMUTEX mutex = nhook_manager->mutex;
-	NMUTEX_LOCK(mutex);
-
-	DWORD pid = nhook_manager->pid;
-
-	ntid_t *o_ids = nhook_manager->o_thread_ids;
-	ntid_t *n_ids = nhook_manager->n_thread_ids;
-
-	size_t n_ids_size = nhook_manager->thread_ids_size;
-	size_t o_ids_size = n_ids_size;
-
-	uint16_t o_id_count = nhook_manager->thread_count;
-	size_t o_real_size = o_id_count * sizeof(ntid_t);
-
-	int8_t scale = (sizeof(HANDLE) / sizeof(ntid_t));
-	size_t o_threads_size = o_ids_size * scale;
-
-	memcpy(o_ids, n_ids, o_real_size);
-
-	uint16_t n_id_count = nosu_get_threads_ex(pid, &n_ids, &n_ids_size);
-	if (n_id_count == 0) {
-		nh_reset_threads(nhook_manager, true);
-		goto nh_update_threads_return;
-	}
-
-	size_t n_real_size = n_id_count * sizeof(ntid_t);
-
-	HANDLE *threads = nhook_manager->threads;
-	size_t n_threads_size = n_ids_size * scale;
-
-	if (n_threads_size > o_threads_size) {
-		o_ids = N_REALLOC(o_ids, n_ids_size);
-		threads = N_REALLOC(threads, n_threads_size);
-
-		if (o_ids == NULL || threads == NULL)
-			goto nh_update_threads_realloc_error;
-
-		size_t s = n_threads_size - o_threads_size;
-		memset(((void *)threads) + o_threads_size, 0, s);
-	}
-
-	uint16_t i;
-	for (i = 0; i < o_id_count; i++) {
-		ntid_t id = o_ids[i];
-
-		void *addr = memmem_n(n_ids, n_real_size, &id, sizeof(id));
-		HANDLE thread = threads[i];
-		if (addr == NULL) {
-			threads[i] = NULL;
-			CloseHandle(thread);
-			continue;
-		}
-
-		uint16_t j = ((size_t)addr - (size_t)n_ids) / sizeof(ntid_t);
-		ntid_t n_id = n_ids[i];
-		n_ids[j] = n_id;
-		n_ids[i] = id;
-	}
-
-	size_t n_real_threads_size = n_real_size * scale;
-
-	if (n_ids_size >= n_real_size + 8192) {
-		n_ids = N_REALLOC(n_ids, n_real_threads_size);
-		threads = N_REALLOC(threads, n_real_threads_size);
-
-		if (n_ids == NULL || threads == NULL) {
-nh_update_threads_realloc_error:
-			ret = GET_ERR(NHOOK_REALLOC_ERROR);
-			goto nh_update_threads_return;
-		}
-	}
-
-	for (i = o_id_count; i < n_id_count; i++)
-		threads[i] = OpenThread(NTHREAD_ACCESS, false, n_ids[i]);
-
-	nhook_manager->thread_count = n_id_count;
-	nhook_manager->thread_ids_size = n_ids_size;
-	nhook_manager->threads = threads;
-	nhook_manager->n_thread_ids = n_ids;
-	nhook_manager->o_thread_ids = o_ids;
-
-nh_update_threads_return:
-	NMUTEX_UNLOCK(mutex);
-	return ret;
-}
-
-#define NHOOK_MAX_IGNORED_ID_COUNT 2
-
-static uint16_t nh_get_ignored_ids(ntid_t *ignored_ids)
-{
-	uint16_t count = 0;
-	register ntid_t id;
-
-	id = GetCurrentThreadId();
-	ignored_ids[count++] = id;
-
-	ntutils_t *ntutils = ntu_get();
-	if (ntutils != NULL) {
-		id = NTHREAD_GET_ID(&ntutils->nthread);
-		if (id != 0)
-			ignored_ids[count++] = id;
-	}
-
-	return count;
-}
-
-nerror_t NHOOK_API nh_resume_threads(nhook_manager_t *nhook_manager)
-{
-	nerror_t ret;
-
-	NMUTEX mutex = nhook_manager->mutex;
-	NMUTEX_LOCK(mutex);
-
-	if (nhook_manager->suspend_count == 0) {
-		ret = N_OK;
-		goto nh_resume_threads_return_without_check;
-	}
-
-	uint16_t n_id_count = nhook_manager->thread_count;
-
-	HANDLE *threads = nhook_manager->threads;
-	HANDLE thread;
-
-	ntid_t *n_ids = nhook_manager->n_thread_ids;
-
-	ntid_t ignored_ids[NHOOK_MAX_IGNORED_ID_COUNT];
-	size_t ignored_ids_size =
-		nh_get_ignored_ids(ignored_ids) * sizeof(ntid_t);
-
-	uint16_t i;
-	for (i = 0; i < n_id_count; i++) {
-		ntid_t id = n_ids[i];
-		if (memmem_n(ignored_ids, ignored_ids_size, &id, sizeof(id)) !=
-		    NULL)
-			continue;
-
-		thread = threads[i];
-		if (thread == NULL)
-			continue;
-
-		if (ResumeThread(thread) == (DWORD)(-1)) {
-			CloseHandle(thread);
-			threads[i] = NULL;
-		}
-	}
-
-nh_resume_threads_return:
-
-	if (!HAS_ERR(ret))
-		nhook_manager->suspend_count--;
-
-nh_resume_threads_return_without_check:
-
-	NMUTEX_UNLOCK(mutex);
-	return ret;
-}
-
-nerror_t NHOOK_API nh_suspend_threads(nhook_manager_t *nhook_manager)
-{
-	nerror_t ret;
-
-	NMUTEX mutex = nhook_manager->mutex;
-	NMUTEX_LOCK(mutex);
-
-	if (nhook_manager->suspend_count > 0) {
-		ret = N_OK;
-		goto nh_suspend_threads_return;
-	}
-
-	ret = nh_update_threads(nhook_manager);
-	if (HAS_ERR(ret))
-		goto nh_suspend_threads_return;
-
-	uint16_t o_id_count;
-	uint16_t n_id_count = nhook_manager->thread_count;
-
-	HANDLE *threads = nhook_manager->threads;
-	HANDLE thread;
-
-	ntid_t ignored_ids[NHOOK_MAX_IGNORED_ID_COUNT];
-	size_t ignored_ids_size =
-		nh_get_ignored_ids(ignored_ids) * sizeof(ntid_t);
-
-	ntid_t *n_ids = nhook_manager->n_thread_ids;
-
-	uint16_t i;
-	for (i = 0; i < n_id_count; i++) {
-		ntid_t id = n_ids[i];
-		if (memmem_n(ignored_ids, ignored_ids_size, &id, sizeof(id)) !=
-		    NULL)
-			continue;
-
-		thread = threads[i];
-		if (thread == NULL)
-			continue;
-
-		if (SuspendThread(thread) == (DWORD)(-1)) {
-			CloseHandle(thread);
-			threads[i] = NULL;
-		}
-	}
-
-	bool end;
-
-	do {
-		end = true;
-		o_id_count = nhook_manager->thread_count;
-		ret = nh_update_threads(nhook_manager);
-		if (HAS_ERR(ret)) {
-			nh_resume_threads(nhook_manager);
-			goto nh_suspend_threads_return;
-		}
-
-		n_ids = nhook_manager->n_thread_ids;
-		n_id_count = nhook_manager->thread_count;
-		threads = nhook_manager->threads;
-
-		size_t o_ids_size = sizeof(ntid_t) * o_id_count;
-
-		uint16_t i;
-		for (i = 0; i < n_id_count; i++) {
-			ntid_t id = n_ids[i];
-
-			void *addr = memmem_n(nhook_manager->o_thread_ids,
-					      o_ids_size, &id, sizeof(id));
-
-			if (addr != NULL)
-				continue;
-			thread = threads[i];
-			if (thread == NULL)
-				continue;
-
-			if (SuspendThread(thread) == (DWORD)(-1)) {
-				CloseHandle(thread);
-				threads[i] = NULL;
-			}
-
-			end = false;
-		}
-	} while (!end);
-
-nh_suspend_threads_return:
-
-	if (!HAS_ERR(ret))
-		nhook_manager->suspend_count++;
-
-	NMUTEX_UNLOCK(mutex);
-	return ret;
-}
-
 void *nh_call_dynamic_func(void *func, uint8_t arg_count, void **args);
 
 nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager)
@@ -1184,7 +899,7 @@ nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager)
 	CONTEXT ctx;
 	ctx.ContextFlags = CONTEXT_CONTROL;
 
-	ret = nh_update_threads(nhook_manager);
+	ret = update_threads(nhook_manager);
 	if (HAS_ERR(ret))
 		return ret;
 
@@ -1260,6 +975,6 @@ void NHOOK_API nh_destroy_manager(nhook_manager_t *nhook_manager)
 		nhook_manager->mutex = NULL;
 	}
 
-	nh_reset_threads(nhook_manager, true);
+	reset_threads(nhook_manager, true);
 	N_FREE(nhook_manager);
 }

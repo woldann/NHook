@@ -25,11 +25,17 @@
 #ifndef __NHOOK_H__
 #define __NHOOK_H__
 
+#ifndef NERROR_LEVEL
+#define NERROR_LEVEL 1
+#endif // !NERROR_LEVEL
+
+#include "nerror.h"
+
+#ifdef NHOOK_EXPORTS
+
 #ifndef NHOOK_API
 #define NHOOK_API NTHREAD_API
 #endif // NHOOK_API
-
-#ifdef NHOOK_EXPORTS
 
 #ifndef NTHREAD_API
 #define NTHREAD_API __declspec(dllexport)
@@ -41,6 +47,7 @@
 
 #else // !NHOOK_EXPORTS
 
+#define NHOOK_API __declspec(dllimport)
 #define NTHREAD_API __declspec(dllimport)
 #define LOG_API __declspec(dllimport)
 
@@ -319,20 +326,6 @@ void NHOOK_API nh_destroy(nhook_manager_t *nhook_manager, void *hook_function);
  * @param nhook_manager Hook manager instance
  */
 void NHOOK_API nh_destroy_all(nhook_manager_t *nhook_manager);
-
-/**
- * @brief Resumes all suspended threads in the hooked process
- * @param nhook_manager Hook manager instance
- * @return nerror_t error code
- */
-nerror_t NHOOK_API nh_resume_threads(nhook_manager_t *nhook_manager);
-
-/**
- * @brief Suspends all threads in the hooked process
- * @param nhook_manager Hook manager instance
- * @return nerror_t error code
- */
-nerror_t NHOOK_API nh_suspend_threads(nhook_manager_t *nhook_manager);
 
 /**
  * @brief Calls the original function (trampoline) with a va_list of arguments (extended)

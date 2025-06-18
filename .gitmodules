@@ -1,14 +1,14 @@
-[submodule "submodules/NThread"]
-	path = submodules/NThread
-	url = https://github.com/woldann/NThread
 [submodule "submodules/Neptune"]
 	path = submodules/Neptune
 	url = https://github.com/woldann/Neptune
-[submodule "submodules/capstone"]
-	path = submodules/capstone
-	url = https://github.com/capstone-engine/capstone
-	branch = v4
+[submodule "submodules/NThread"]
+	path = submodules/NThread
+	url = https://github.com/woldann/NThread
 [submodule "submodules/NThreadOSUtils"]
 	path = submodules/NThreadOSUtils
 	url = https://github.com/woldann/NThreadOSUtils
 	branch = main-no-tests
+[submodule "submodules/capstone"]
+	path = submodules/capstone
+	url = https://github.com/capstone-engine/capstone
+	branch = v4

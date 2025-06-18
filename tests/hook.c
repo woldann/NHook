@@ -39,11 +39,11 @@ size_t my_strlen(const char *str)
 
 	size_t len = sizeof(STR) - 1;
 	if (len != ret) {
-		LOG_ERROR("Trampoline Failed! %ld!=%ld", len, ret);
+		perror("Trampoline Failed!");
 		nh_disable_all(man);
 	}
 
-	LOG_INFO("my_strlen(%p)=%ld", str, ret);
+	printf("my_strlen(%p)=%ld\n", str, ret);
 
 	if (strlen_counter >= 10)
 		nh_disable_all(man);
@@ -58,7 +58,7 @@ void thread_loop()
 
 	while (true) {
 		size_t ret = strlen_func(str1);
-		LOG_INFO("strlen(%p)=%ld", str1, ret);
+		printf("strlen(%p)=%ld\n", str1, ret);
 		for (uint8_t i = 0; i < 100; i++)
 			Sleep(1);
 	}
@@ -73,33 +73,35 @@ int main(int argc, char *argv[])
 
 	strlen_func = (void *)GetProcAddress((HANDLE)mod, func_name);
 	if (strlen_func == NULL) {
-		LOG_ERROR("GetProcAddress failed");
+		printf("Error: GetProcAddress failed - Could not find %s in module %p\n",
+		       func_name, mod);
 		return 0x01;
-	}
-
-	LOG_INFO("%s(%p)", func_name, strlen_func);
-
-	HANDLE cr_thread =
-		CreateThread(NULL, 0, (void *)thread_loop, NULL, 0, NULL);
-	if (cr_thread == NULL) {
-		LOG_ERROR("CreateThread failed");
-		return 0x02;
 	}
 
 	DWORD pid = GetCurrentProcessId();
 	man = nh_create_manager(pid, 2);
 	if (man == NULL) {
-		LOG_ERROR("nh_create_manager failed");
+		printf("Error: nh_create_manager failed - Could not create hook manager for PID %lu\n",
+		       pid);
 		return 0x03;
 	}
 
 	if (HAS_ERR(nh_create(man, strlen_func, (void *)my_strlen, 1))) {
-		LOG_ERROR("nh_create failed");
+		printf("Error: nh_create failed - Could not create hook for function %p with hook %p\n",
+		       strlen_func, (void *)my_strlen);
 		return 0x04;
 	}
 
+	HANDLE cr_thread =
+		CreateThread(NULL, 0, (void *)thread_loop, NULL, 0, NULL);
+	if (cr_thread == NULL) {
+		printf("Error: CreateThread failed - Could not create test thread\n");
+		return 0x02;
+	}
+
 	if (HAS_ERR(nh_enable_all(man))) {
-		LOG_ERROR("nh_enable_all failed");
+		printf("Error: nh_enable_all failed - Could not enable hooks in manager %p\n",
+		       man);
 		return 0x05;
 	}
 
