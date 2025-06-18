@@ -25,36 +25,11 @@
 #ifndef __NHOOK_H__
 #define __NHOOK_H__
 
-#ifndef NERROR_LEVEL
-#define NERROR_LEVEL 1
-#endif // !NERROR_LEVEL
-
-#include "nerror.h"
-
-#ifdef NHOOK_EXPORTS
-
-#ifndef NHOOK_API
-#define NHOOK_API NTHREAD_API
-#endif // NHOOK_API
-
-#ifndef NTHREAD_API
-#define NTHREAD_API __declspec(dllexport)
-#endif // !NTHREAD_API
-
-#ifndef LOG_API
-#define LOG_API __declspec(dllexport)
-#endif // !LOG_API
-
-#else // !NHOOK_EXPORTS
-
+#ifdef NHOOK_EXPORT
+#define NHOOK_API __declspec(dllexport)
+#else // !NHOOK_API
 #define NHOOK_API __declspec(dllimport)
-#define NTHREAD_API __declspec(dllimport)
-#define LOG_API __declspec(dllimport)
-
-#endif // !NHOOK_EXPORTS
-
-#include "ntosutils.h"
-#include "nmutex.h"
+#endif // !NHOOK_API
 
 #define NHOOK_ERROR 0x4500
 #define NHOOK_FIND_ERROR 0x4501
@@ -76,101 +51,32 @@
 #define NHOOK_ADD_INSN_ERROR 0x4512
 #define NHOOK_CS_OPTION_ERROR 0x4513
 
-#define NHOOK_FLAG_ENABLED 0x01
-#define NHOOK_FLAG_SECOND_INSN 0x02
-
-/**
- * @brief Represents an inline hook instance
- * 
- * Contains the original function address, hook function address, calling convention,
- * flags, argument count, overwritten instruction bytes, and trampoline address.
- */
-struct trampoline;
-
-struct nhook {
-	void *function; /**< Address of the original function */
-	void *hook_function; /**< Address of the hook function */
-
-#ifndef NTU_GLOBAL_CC
-	ntucc_t cc; /**< Calling convention */
-#endif // !NTU_GLOBAL_CC
-
-	int8_t flags; /**< Hook flags (e.g. enabled) */
-	uint8_t arg_count; /**< Number of arguments the function accepts */
-
-	uint8_t affected_length; /**< Number of bytes overwritten in original function */
-	uint8_t mem[16]; /**< Backup of overwritten instruction bytes */
-
-	struct trampoline *tramp; /**< Trampoline struct */
-};
-
+struct nhook;
+struct nhook_manager;
 typedef struct nhook nhook_t;
-
-/**
- * @brief Marks a hook as invalid (clears its function pointer)
- * @param nhook Pointer to hook instance
- */
-#define NHOOK_SET_INVALID(nhook) ((nhook)->function = NULL)
-
-/**
- * @brief Checks whether a hook is valid (has a non-null function pointer)
- * @param nhook Pointer to hook instance
- * @return true if valid, false otherwise
- */
-#define NHOOK_IS_VALID(nhook) ((nhook)->function != NULL)
-
-/**
- * @brief Manages all hooks and thread states for a specific process
- * 
- * Keeps track of process ID, synchronization mutex, thread handles and IDs,
- * counts of threads and hooks, and suspension counts.
- */
-struct nhook_manager {
-	DWORD pid; /**< Process ID */
-
-	NMUTEX mutex; /**< Mutex for thread-safe operations */
-
-	ntid_t *o_thread_ids; /**< Original thread IDs before hooking */
-	ntid_t *n_thread_ids; /**< New thread IDs after hooking */
-	size_t thread_ids_size; /**< Size of thread ID arrays */
-
-	HANDLE *threads; /**< Handles to the threads */
-	uint16_t thread_count; /**< Number of threads */
-	uint16_t suspend_count; /**< Number of suspended threads */
-
-	uint16_t max_hook_count; /**< Maximum number of hooks allowed */
-};
-
 typedef struct nhook_manager nhook_manager_t;
 
-/**
- * @brief Helper macro to get a hook by index from the hook manager
- */
-#define NHOOK_MANAGER_GET_HOOK(nhook_manager, index) \
-	(((nhook_t *)(((nhook_manager) + 1))) + i)
+#include <stdint.h>
+#include <stdbool.h>
+#include <windows.h>
 
-/**
- * @brief Retrieves the base address of kernel32.dll in the target process
- * @return Pointer to kernel32.dll base, or NULL on failure
- */
-void *NHOOK_API nh_get_kernel32_base();
+#ifndef __NERROR_H__
+#define __NERROR_H__
 
-/**
- * @brief Initializes global resources needed for hooking
- * @return nerror_t error code, 0 on success
- */
-nerror_t NHOOK_API nh_global_init();
+typedef int nerror_t;
 
-/**
- * @brief Changes the protection attributes of a memory region
- * @param lpAddress Starting address of region
- * @param dwSize Size of the region in bytes
- * @param flNewProtect New protection flags (e.g. PAGE_EXECUTE_READWRITE)
- * @param lpflOldProtect Out parameter to receive old protection flags
- * @return TRUE on success, FALSE on failure
- */
-BOOL NHOOK_API nh_virtual_protect(LPVOID lpAddress, SIZE_T dwSize,
-				  DWORD flNewProtect, PDWORD lpflOldProtect);
+#ifdef NERROR_LEVEL
+#undef NERROR_LEVEL
+#endif // NERROR_LEVEL
+
+#define NERROR_LEVEL 1
+
+#define N_OK 0x00 // No error
+#define N_ERR 0x01 // Generic error code
+#define HAS_ERROR(error) (error != N_OK)
+#define HAS_ERR(error) (HAS_ERROR(error))
+
+#endif // !__NERROR_H__
 
 /**
  * @brief Checks whether a hook is currently enabled (extended)
@@ -204,29 +110,6 @@ nhook_t *NHOOK_API nh_find_with_function(nhook_manager_t *nhook_manager,
  * @return Pointer to nhook instance if found, NULL otherwise
  */
 nhook_t *NHOOK_API nh_find(nhook_manager_t *nhook_manager, void *hook_function);
-
-/**
- * @brief Creates a hook manager for a specified process ID
- * @param pid Process ID
- * @param max_hook_count Maximum hooks to manage
- * @return Pointer to the newly created hook manager, or NULL on failure
- */
-nhook_manager_t *NHOOK_API nh_create_manager(DWORD pid,
-					     uint16_t max_hook_count);
-
-/**
- * @brief Gets the count of currently enabled hooks in the manager
- * @param nhook_manager Hook manager instance
- * @return Number of enabled hooks
- */
-uint16_t NHOOK_API nh_manager_get_enabled_count(nhook_manager_t *nhook_manager);
-
-/**
- * @brief Gets the total number of hooks in the manager
- * @param nhook_manager Hook manager instance
- * @return Total number of hooks
- */
-uint16_t NHOOK_API nh_manager_get_count(nhook_manager_t *nhook_manager);
 
 /**
  * @brief Creates a hook on the specified function
@@ -328,33 +211,6 @@ void NHOOK_API nh_destroy(nhook_manager_t *nhook_manager, void *hook_function);
 void NHOOK_API nh_destroy_all(nhook_manager_t *nhook_manager);
 
 /**
- * @brief Calls the original function (trampoline) with a va_list of arguments (extended)
- * 
- * This is used within the hook function to call the original, unhooked function,
- * forwarding the argument list.
- * 
- * @param nhook_manager Hook manager instance
- * @param nhook Pointer to hook instance
- * @param args va_list arguments to pass to original function
- * @return Return value of the original function cast to void*
- */
-void *NHOOK_API nh_trampoline_ex_v(nhook_manager_t *nhook_manager,
-				   nhook_t *nhook, va_list args);
-
-/**
- * @brief Calls the original function (trampoline) with variable arguments (extended)
- * 
- * Variadic convenience wrapper around nh_trampoline_ex_v.
- * 
- * @param nhook_manager Hook manager instance
- * @param nhook Pointer to hook instance
- * @param ... Variable arguments for the original function
- * @return Return value of the original function cast to void*
- */
-void *NHOOK_API nh_trampoline_ex(nhook_manager_t *nhook_manager, nhook_t *nhook,
-				 ...);
-
-/**
  * @brief Calls the original function (trampoline) by hook function pointer with va_list
  * 
  * Finds the hook by hook function pointer and calls the original function with va_list args.
@@ -380,6 +236,37 @@ void *NHOOK_API nh_trampoline_v(nhook_manager_t *nhook_manager,
 void *NHOOK_API nh_trampoline(nhook_manager_t *nhook_manager,
 			      void *hook_function, ...);
 
+
+
+/**
+ * @brief Gets the count of currently enabled hooks in the manager
+ * @param nhook_manager Hook manager instance
+ * @return Number of enabled hooks
+ */
+uint16_t NHOOK_API nh_manager_get_enabled_count(nhook_manager_t *nhook_manager);
+
+/**
+ * @brief Gets the total number of hooks in the manager
+ * @param nhook_manager Hook manager instance
+ * @return Total number of hooks
+ */
+uint16_t NHOOK_API nh_manager_get_count(nhook_manager_t *nhook_manager);
+
+/**
+ * @brief Creates a hook manager for a specified process ID
+ * @param pid Process ID
+ * @param max_hook_count Maximum hooks to manage
+ * @return Pointer to the newly created hook manager, or NULL on failure
+ */
+nhook_manager_t *NHOOK_API nh_create_manager(DWORD pid,
+					     uint16_t max_hook_count);
+
+/**
+ * @brief Destroys the hook manager and releases all associated resources
+ * @param nhook_manager Hook manager instance pointer
+ */
+void NHOOK_API nh_destroy_manager(nhook_manager_t *nhook_manager);
+
 /**
  * @brief Updates thread states and hook statuses
  * 
@@ -391,11 +278,5 @@ void *NHOOK_API nh_trampoline(nhook_manager_t *nhook_manager,
  * @return nerror_t error code
  */
 nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager);
-
-/**
- * @brief Destroys the hook manager and releases all associated resources
- * @param nhook_manager Hook manager instance pointer
- */
-void NHOOK_API nh_destroy_manager(nhook_manager_t *nhook_manager);
 
 #endif // !__NHOOK_H__

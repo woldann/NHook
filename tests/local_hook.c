@@ -23,6 +23,8 @@
  */
 
 #include "nhook.h"
+
+#include "ntutils.h"
 #include "nerror.h"
 
 #define STR "test str"
@@ -68,7 +70,7 @@ void thread_loop()
 
 int main(int argc, char *argv[])
 {
-	void *mod = ntu_get_libc_base();
+	void *mod = GetModuleHandleA("msvcrt.dll");
 	char func_name[] = "strlen";
 
 	strlen_func = (void *)GetProcAddress((HANDLE)mod, func_name);

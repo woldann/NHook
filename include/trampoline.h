@@ -25,7 +25,7 @@
 #ifndef __TRAMPOLINE_H__
 #define __TRAMPOLINE_H__
 
-#include "nhook.h"
+#include "manager.h"
 #include <stdarg.h>
 
 struct mem_args {
@@ -198,7 +198,7 @@ typedef struct insn_args_rw insn_args_rw_t;
 
 typedef void (*proc_insns_fn)(insn_args_rw_t *args);
 
-struct trampoline {
+struct nh_trampoline {
 	proc_insns_fn func;
 	union {
 		insn_args_rw_t args[2];
@@ -211,14 +211,15 @@ struct trampoline {
 
 #include <capstone/capstone.h>
 
-typedef struct trampoline trampoline_t;
+typedef struct nh_trampoline nh_trampoline_t;
 
-void trampoline_proc(trampoline_t *tramp);
+bool nh_trampoline_add_insn(nh_trampoline_t *tramp, cs_insn *insn);
 
-bool add_insn(trampoline_t *tramp, cs_insn *insn);
+nh_trampoline_t *nh_trampoline_init();
 
-trampoline_t *trampoline_init();
+void nh_trampoline_destroy(nh_trampoline_t *tramp);
 
-void trampoline_destroy(trampoline_t *tramp);
+void *nh_trampoline_ex(nhook_manager_t *nhook_manager,
+				   nhook_t *nhook, nh_trampoline_t *tramp, va_list args);
 
 #endif // !__TRAMPOLINE_H__

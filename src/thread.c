@@ -23,6 +23,8 @@
  */
 
 #include "thread.h"
+
+#include "ntosutils.h"
 #include "nmem.h"
 
 static uint16_t get_ignored_ids(ntid_t *ignored_ids)
@@ -41,6 +43,44 @@ static uint16_t get_ignored_ids(ntid_t *ignored_ids)
 	}
 
 	return count;
+}
+
+nerror_t transfer_threads(nhook_manager_t *nhook_manager,
+				    nhook_t *nhook)
+{
+	HANDLE *threads = nhook_manager->threads;
+	HANDLE thread;
+
+	CONTEXT ctx;
+	ctx.ContextFlags = CONTEXT_CONTROL;
+
+	void *pos = nhook->function + 1;
+	void *rip;
+
+	uint16_t i;
+	uint16_t count = nhook_manager->thread_count;
+	for (i = 0; i < count; i++) {
+		thread = threads[i];
+		if (thread == NULL)
+			continue;
+
+		if (!GetThreadContext(thread, &ctx))
+			goto nh_transfer_threads_remove_thread;
+
+		rip = (void *)ctx.Rip;
+		if (rip != pos)
+			continue;
+
+		// TODO
+
+		ctx.Rip = (DWORD64)(pos - 1);
+		if (SetThreadContext(thread, &ctx)) {
+nh_transfer_threads_remove_thread:
+			threads[i] = NULL;
+		}
+	}
+
+	return N_OK;
 }
 
 void reset_threads(nhook_manager_t *nhook_manager, bool free_addresses)

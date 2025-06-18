@@ -1,7 +1,7 @@
 section .text
-global nh_call_dynamic_func
+global call_dynamic_func
 
-nh_call_dynamic_func:
+call_dynamic_func:
     push rbp
     mov rbp, rsp
     sub rsp, 32

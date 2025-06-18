@@ -1895,7 +1895,7 @@ static void proc_insns_select_f(void *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	trampoline_t *tramp = (trampoline_t *)(args - sizeof(proc_insns_fn));
+	nh_trampoline_t *tramp = (nh_trampoline_t *)(args - sizeof(proc_insns_fn));
 	insn_args_rw_t *f_args = &tramp->f_args;
 	proc_insn_fn f_func = f_args->func;
 
@@ -1910,7 +1910,7 @@ static void proc_insns_select_f(void *args)
 	memcpy(n_ctx, &ctx, sizeof(ctx));
 
 	int8_t flags = 0;
-	size_t size = sizeof(trampoline_t) - sizeof(insn_args_rw_t);
+	size_t size = sizeof(nh_trampoline_t) - sizeof(insn_args_rw_t);
 
 	if (f_args->read_size > 0)
 		flags |= INSN_FLAG_READ;
@@ -1940,7 +1940,7 @@ static void proc_insns_select_f_s(void *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	trampoline_t *tramp = (trampoline_t *)(args - sizeof(proc_insns_fn));
+	nh_trampoline_t *tramp = (nh_trampoline_t *)(args - sizeof(proc_insns_fn));
 	insn_args_rw_t *f_args = &tramp->f_args;
 	insn_args_rw_t *s_args = &tramp->s_args;
 
@@ -1998,7 +1998,7 @@ static void proc_insns_select_f_s(void *args)
 		       sizeof(insn_args_t));
 	}
 
-	size_t size = sizeof(trampoline_t) - f_diff - s_diff;
+	size_t size = sizeof(nh_trampoline_t) - f_diff - s_diff;
 	if (N_REALLOC(tramp, size) != NULL) {
 		proc_insns_fn func = proc_insns_funcs[f_flags][1 + s_flags];
 		tramp->func = func;
@@ -2008,7 +2008,7 @@ static void proc_insns_select_f_s(void *args)
 
 static void proc_insns_select(void *args)
 {
-	trampoline_t *tramp = (trampoline_t *)(args - sizeof(proc_insns_fn));
+	nh_trampoline_t *tramp = (nh_trampoline_t *)(args - sizeof(proc_insns_fn));
 	insn_args_rw_t *f_args = &tramp->f_args;
 	insn_args_rw_t *s_args = &tramp->s_args;
 
@@ -2018,7 +2018,7 @@ static void proc_insns_select(void *args)
 		proc_insns_select_f(args);
 }
 
-bool add_insn(trampoline_t *tramp, cs_insn *insn)
+bool nh_trampoline_add_insn(nh_trampoline_t *tramp, cs_insn *insn)
 {
 	bool ret;
 
@@ -2047,14 +2047,9 @@ add_insn_return:
 	return ret;
 }
 
-void trampoline_proc(trampoline_t *tramp)
+nh_trampoline_t *nh_trampoline_init()
 {
-	tramp->func(tramp->args);
-}
-
-trampoline_t *trampoline_init()
-{
-	trampoline_t *tramp = N_ALLOC(sizeof(trampoline_t));
+	nh_trampoline_t *tramp = N_ALLOC(sizeof(nh_trampoline_t));
 	if (tramp == NULL)
 		return NULL;
 
@@ -2064,10 +2059,62 @@ trampoline_t *trampoline_init()
 	return tramp;
 }
 
-void trampoline_destroy(trampoline_t *tramp)
+void nh_trampoline_destroy(nh_trampoline_t *tramp)
 {
 	if (tramp == NULL)
 		return;
 
 	N_FREE(tramp);
+}
+
+void *nh_trampoline_ex(nhook_manager_t *nhook_manager,
+				   nhook_t *nhook, nh_trampoline_t *tramp, va_list args)
+{
+#ifndef NTUTILS_GLOBAL_CC
+	ntu_set_cc(nhook->cc);
+#endif /* ifndef NTUTILS_GLOBAL_CC */
+
+	uint8_t arg_count = nhook->arg_count;
+
+	va_list copy;
+	va_copy(copy, args);
+	if (HAS_ERR(ntu_set_args_v(arg_count, copy))) {
+		va_end(copy);
+		return NULL;
+	}
+	va_end(copy);
+
+	ntutils_t *ntutils = ntu_get();
+	nthread_t *nthread = &ntutils->nthread;
+
+	void *func = nhook->function;
+
+	void *rsp = nthread_stack_begin(nthread);
+	NTHREAD_SET_REG(nthread, NTHREAD_RSP, rsp - sizeof(func));
+	NTHREAD_SET_REG(nthread, NTHREAD_RIP, func);
+
+	tramp->func(tramp->args);
+
+	void *rip = NTHREAD_GET_REG(nthread, NTHREAD_RIP);
+	uint8_t len = nhook->affected_length;
+
+	void *call = func + len;
+
+	void *reg_args[8];
+	ntu_get_reg_args(arg_count, reg_args);
+
+	if (HAS_ERR(ntu_set_args_v(arg_count, args)))
+		return NULL;
+
+	ntu_set_reg_args(arg_count, reg_args);
+
+	if (rip >= func && rip < call)
+		NTHREAD_SET_REG(nthread, NTHREAD_RIP, call);
+
+	if (HAS_ERR(nthread_set_regs(nthread)))
+		return NULL;
+	if (HAS_ERR(nthread_wait(nthread)))
+		return NULL;
+
+	return NTHREAD_GET_REG(nthread, NTHREAD_RAX);
 }
