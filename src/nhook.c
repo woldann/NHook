@@ -208,11 +208,19 @@ nerror_t NHOOK_API nh_create(nhook_manager_t *nhook_manager, void *function,
 		goto nh_install_return;
 	}
 
+	nhook->affected_length = 0;
+	nhook->flags = 0;
+
+	nhook->tramp = trampoline_init();
+	if (nhook->tramp == NULL) {
+		ret = GET_ERR(NHOOK_TRAMPOLINE_INIT_ERROR);
+		nh_destroy_ex(nhook_manager, nhook);
+		goto nh_install_return;
+	}
+
 	nhook->function = function;
 	nhook->hook_function = hook_function;
 	nhook->arg_count = arg_count;
-	nhook->affected_length = 0;
-	nhook->flags = 0;
 	ret = N_OK;
 
 #ifndef NTU_GLOBAL_CC
@@ -226,8 +234,7 @@ nh_install_return:
 
 nerror_t NHOOK_API nh_create_with_mem(nhook_manager_t *nhook_manager,
 				      void *function, void *hook_function,
-				      uint8_t arg_count, void *mem,
-				      uint8_t affected_length)
+				      uint8_t arg_count, void *mem)
 {
 	nerror_t ret;
 
@@ -238,12 +245,45 @@ nerror_t NHOOK_API nh_create_with_mem(nhook_manager_t *nhook_manager,
 	if (!HAS_ERR(ret)) {
 		nhook_t *nhook = nh_find(nhook_manager, hook_function);
 
+		csh handle;
+		cs_insn *insn;
+
+		cs_err err = cs_open(CS_ARCH_X86, CS_MODE_64, &handle);
+		if (err != CS_ERR_OK) {
+			ret = GET_ERR(NHOOK_CS_OPEN_ERROR);
+			goto nh_create_with_mem_return;
+		}
+
+		err = cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
+		if (err != CS_ERR_OK) {
+			ret = GET_ERR(NHOOK_CS_OPTION_ERROR);
+			goto nh_enable_ex_cs_close_and_return;
+		}
+
+		int8_t i;
+		int8_t count =
+			cs_disasm(handle, mem, 16, (uint64_t)mem, 2, &insn);
+
+		size_t affected_length = 0;
+		for (i = 0; i < count; i++) {
+			if (!add_insn(nhook->tramp, insn + i)) {
+				ret = GET_ERR(NHOOK_ADD_INSN_ERROR);
+				goto nh_enable_ex_cs_close_and_return;
+			}
+
+			affected_length += insn[i].size;
+		}
+
 		nhook->affected_length = affected_length;
 		memcpy(nhook->mem, mem, affected_length);
 
 		nhook->flags |= NHOOK_FLAG_ENABLED;
+
+nh_enable_ex_cs_close_and_return:
+		cs_close(&handle);
 	}
 
+nh_create_with_mem_return:
 	NMUTEX_UNLOCK(mutex);
 	return ret;
 }
@@ -420,21 +460,15 @@ nerror_t NHOOK_API nh_enable_ex(nhook_manager_t *nhook_manager, nhook_t *nhook)
 	err = cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 	if (err != CS_ERR_OK) {
 		ret = GET_ERR(NHOOK_CS_OPTION_ERROR);
-		goto nh_enable_ex_resume_return;
-	}
 
-	ret = ntu_read_memory(func, mem, 2);
-	if (HAS_ERR(ret)) {
 nh_enable_ex_cs_close_and_return:
 		cs_close(&handle);
 		goto nh_enable_ex_resume_return;
 	}
 
-	nhook->tramp = trampoline_init();
-	if (nhook->tramp == NULL) {
-		ret = GET_ERR(NHOOK_TRAMPOLINE_INIT_ERROR);
+	ret = ntu_read_memory(func, mem, 2);
+	if (HAS_ERR(ret))
 		goto nh_enable_ex_cs_close_and_return;
-	}
 
 	int8_t count = cs_disasm(handle, mem, 2, (uint64_t)mem, 2, &insn);
 	if (count == 1) {

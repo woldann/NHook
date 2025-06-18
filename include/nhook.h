@@ -249,8 +249,7 @@ nerror_t NHOOK_API nh_create(nhook_manager_t *nhook_manager, void *function,
  */
 nerror_t NHOOK_API nh_create_with_mem(nhook_manager_t *nhook_manager,
 				      void *function, void *hook_function,
-				      uint8_t arg_count, void *mem,
-				      uint8_t affected_length);
+				      uint8_t arg_count, void *mem);
 
 /**
  * @brief Enables a specific hook (extended version)
