@@ -23,6 +23,7 @@
  */
 
 #include "hook.h"
+#include "nerror.h"
 #include "trampoline.h"
 #include "thread.h"
 #include "manager.h"
@@ -359,15 +360,15 @@ nerror_t NHOOK_API nh_enable(nhook_manager_t *nhook_manager,
 
 nerror_t NHOOK_API nh_enable_all(nhook_manager_t *nhook_manager)
 {
-	nerror_t ret;
+	nerror_t ret = N_OK;
 
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);
 
 	int8_t fu = FORCE_NTUTILS_FAIL;
 
-	uint16_t count = nhook_manager->max_hook_count;
 	uint16_t i;
+	uint16_t count = nhook_manager->max_hook_count;
 	for (i = 0; i < count; i++) {
 		nhook_t *nhook = NHOOK_MANAGER_GET_HOOK(nhook_manager, i);
 		if (!NHOOK_IS_VALID(nhook))
@@ -381,7 +382,7 @@ nerror_t NHOOK_API nh_enable_all(nhook_manager_t *nhook_manager)
 			}
 		}
 
-		nerror_t ret = nh_enable_ex(nhook_manager, nhook);
+		ret = nh_enable_ex(nhook_manager, nhook);
 		if (HAS_ERR(ret))
 			break;
 	}
@@ -465,16 +466,15 @@ nerror_t NHOOK_API nh_disable(nhook_manager_t *nhook_manager,
 
 nerror_t NHOOK_API nh_disable_all(nhook_manager_t *nhook_manager)
 {
-	nerror_t ret;
+	nerror_t ret = N_OK;
 
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);
 
 	int8_t fu = FORCE_NTUTILS_FAIL;
 
-	uint16_t count = nhook_manager->max_hook_count;
 	uint16_t i;
-
+	uint16_t count = nhook_manager->max_hook_count;
 	for (i = 0; i < count; i++) {
 		nhook_t *nhook = NHOOK_MANAGER_GET_HOOK(nhook_manager, i);
 		if (!NHOOK_IS_VALID(nhook))
