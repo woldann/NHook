@@ -24,8 +24,7 @@
 
 #include "nhook.h"
 
-#include "ntutils.h"
-#include "nerror.h"
+#include <stdio.h>
 
 #define STR "test str"
 
@@ -88,7 +87,7 @@ int main(int argc, char *argv[])
 		return 0x03;
 	}
 
-	if (HAS_ERR(nh_create(man, strlen_func, (void *)my_strlen, 1))) {
+	if (NH_HAS_ERR(nh_create(man, strlen_func, (void *)my_strlen, 1))) {
 		printf("Error: nh_create failed - Could not create hook for function %p with hook %p\n",
 		       strlen_func, (void *)my_strlen);
 		return 0x04;
@@ -101,7 +100,7 @@ int main(int argc, char *argv[])
 		return 0x02;
 	}
 
-	if (HAS_ERR(nh_enable_all(man))) {
+	if (NH_HAS_ERR(nh_enable_all(man))) {
 		printf("Error: nh_enable_all failed - Could not enable hooks in manager %p\n",
 		       man);
 		return 0x05;

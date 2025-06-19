@@ -36,7 +36,7 @@ typedef int nh_nerror_t;
 #define NH_OK 0x00 // No error
 #define NH_ERR 0x01 // Generic error code
 #define NH_HAS_ERROR(error) (error != NH_OK)
-#define NH_HAS_ERR(error) (HAS_ERROR(error))
+#define NH_HAS_ERR(error) (NH_HAS_ERROR(error))
 
 #ifndef NHOOK_FULL
 struct ntutils;
