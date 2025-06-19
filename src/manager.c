@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "nhook.h"
+#include "core.h"
 #include "thread.h"
 #include "trampoline.h"
 

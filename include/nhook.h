@@ -29,12 +29,8 @@
 #define NHOOK_API __declspec(dllexport)
 #else // !NHOOK_API
 #define NHOOK_API __declspec(dllimport)
-#ifndef NHOOK_LITE
-#define NHOOK_LITE
-#endif // !NHOOK_LITE
 #endif // !NHOOK_API
 
-#ifdef NHOOK_LITE
 typedef int nh_nerror_t;
 
 #define NH_OK 0x00 // No error
@@ -42,20 +38,14 @@ typedef int nh_nerror_t;
 #define NH_HAS_ERROR(error) (error != NH_OK)
 #define NH_HAS_ERR(error) (HAS_ERROR(error))
 
+#ifndef NHOOK_FULL
 struct ntutils;
 typedef struct ntutils ntutils_t;
 struct nhook;
 typedef struct nhook nhook_t;
 struct nhook_manager;
 typedef struct nhook_manager nhook_manager_t;
-#else // !NHOOK_LITE
-#include "nerror.h"
-typedef nerror_t nh_nerror_t;
-
-#include "ntutils.h"
-#include "hook.h"
-#include "manager.h"
-#endif // NHOOK_LITE
+#endif // !NHOOK_FULL
 
 #define NHOOK_ERROR 0x4500
 #define NHOOK_FIND_ERROR 0x4501
@@ -76,11 +66,16 @@ typedef nerror_t nh_nerror_t;
 #define NHOOK_TRAMPOLINE_INIT_ERROR 0x4511
 #define NHOOK_ADD_INSN_ERROR 0x4512
 #define NHOOK_CS_OPTION_ERROR 0x4513
+#define NHOOK_ERROR_E NHOOK_CS_OPTION_ERROR
 
 #include <stdint.h>
 #include <stdbool.h>
 #include <windows.h>
 
+/**
+ * @brief Gets the NThread utilities instance
+ * @return Pointer to ntutils instance, or NULL on failure
+ */
 ntutils_t *NHOOK_API nh_get_ntutils(void);
 
 /**

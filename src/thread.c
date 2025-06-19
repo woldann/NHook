@@ -22,8 +22,9 @@
  * SOFTWARE.
  */
 
+#include "core.h"
+
 #include "thread.h"
-#include "nhook.h"
 
 #include "ntosutils.h"
 #include "nmem.h"

@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "module.h"
+#include "core.h"
 
 #ifdef __NTUTILS_H__
 NEPTUNE_MODULE_INIT(nh_global_init)

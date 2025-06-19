@@ -22,8 +22,9 @@
  * SOFTWARE.
  */
 
+#include "core.h"
+
 #include "trampoline.h"
-#include "nhook.h"
 
 #include "nmem.h"
 

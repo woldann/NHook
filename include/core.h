@@ -22,17 +22,29 @@
  * SOFTWARE.
  */
 
-#include "core.h"
+#ifndef __CORE_H__
+#define __CORE_H__
 
-ntutils_t *NHOOK_API nh_get_ntutils(void)
-{
-	return ntu_get();
-}
+#include "nerror.h"
+#include "ntutils.h"
+#include "manager.h"
+#include "hook.h"
 
-BOOL nh_virtual_protect(LPVOID lpAddress, SIZE_T dwSize, DWORD flNewProtect,
-			PDWORD lpflOldProtect)
-{
-	ntu_set_default_cc();
-	return (BOOL)(int64_t)ntu_ucall(nh_tfuncs.VirtualProtect, lpAddress,
-					dwSize, flNewProtect, lpflOldProtect);
-}
+#ifndef NHOOK_FULL
+#define NHOOK_FULL
+#endif // !NHOOK_FULL
+
+#include "nhook.h"
+
+struct nh_tfunctions {
+	void *VirtualProtect;
+	// void *VirtualQuery;
+};
+
+extern struct nh_tfunctions nh_tfuncs;
+
+HMODULE nh_get_kernel32_module(void);
+
+nerror_t nh_global_init(void);
+
+#endif // !__CORE_H__

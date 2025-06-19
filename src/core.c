@@ -22,22 +22,27 @@
  * SOFTWARE.
  */
 
-#ifndef __MODULE_H__
-#define __MODULE_H__
+#include "core.h"
 
-#include "nerror.h"
+struct nh_tfunctions nh_tfuncs;
 
-#include <windows.h>
+HMODULE nh_get_kernel32_module(void)
+{
+	return GetModuleHandleA("kernel32");
+}
 
-struct nh_tfunctions {
-	void *VirtualProtect;
-	// void *VirtualQuery;
-};
+nerror_t nh_global_init(void)
+{
+	HMODULE kernel32 = nh_get_kernel32_module();
+	if (kernel32 == NULL)
+		return GET_ERR(NHOOK_GET_KERNEL32_BASE_ERROR);
 
-extern struct nh_tfunctions nh_tfuncs;
+	nh_tfuncs.VirtualProtect = GetProcAddress(kernel32, "VirtualProtect");
+	// nh_tfuncs.VirtualQuery = GetProcAddress(libc_base, "VirtualQuery");
 
-HMODULE nh_get_kernel32_module(void);
+	if (nh_tfuncs.VirtualProtect ==
+	    NULL /* || nh_tfuncs.VirtualQuery == NULL */)
+		return GET_ERR(NHOOK_GET_PROC_ADDRESS_ERROR);
 
-nerror_t nh_global_init(void);
-
-#endif // !__MODULE_H__
+	return N_OK;
+}
