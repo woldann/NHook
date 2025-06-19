@@ -11,28 +11,30 @@ file(GLOB_RECURSE NHOOK_HEADERS CONFIGURE_DEPENDS ${NHOOK_INCLUDE_DIR}/*.h)
 file(GLOB_RECURSE NHOOK_SOURCES CONFIGURE_DEPENDS ${NHOOK_SOURCE_DIR}/*.c)
 
 set(CAPSTONE_SOURCES
-    submodules/capstone/cs.c
-    submodules/capstone/arch/X86/X86ATTInstPrinter.c
-    submodules/capstone/arch/X86/X86Disassembler.c
-    submodules/capstone/arch/X86/X86DisassemblerDecoder.c
-    submodules/capstone/arch/X86/X86IntelInstPrinter.c
-    submodules/capstone/arch/X86/X86Mapping.c
-    submodules/capstone/arch/X86/X86Module.c
-    submodules/capstone/MCInst.c
-    submodules/capstone/MCRegisterInfo.c
-    submodules/capstone/MCInstrDesc.c
-    submodules/capstone/utils.c
-    submodules/capstone/SStream.c
+  submodules/capstone/cs.c
+  submodules/capstone/arch/X86/X86ATTInstPrinter.c
+  submodules/capstone/arch/X86/X86Disassembler.c
+  submodules/capstone/arch/X86/X86DisassemblerDecoder.c
+  submodules/capstone/arch/X86/X86IntelInstPrinter.c
+  submodules/capstone/arch/X86/X86Mapping.c
+  submodules/capstone/arch/X86/X86Module.c
+  submodules/capstone/MCInst.c
+  submodules/capstone/MCRegisterInfo.c
+  submodules/capstone/MCInstrDesc.c
+  submodules/capstone/utils.c
+  submodules/capstone/SStream.c
 )
 
 set(ABSOLUTE_CAPSTONE_SOURCES "")
 foreach(SRC ${CAPSTONE_SOURCES})
-    list(APPEND ABSOLUTE_CAPSTONE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/${SRC}")
+  list(APPEND ABSOLUTE_CAPSTONE_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/${SRC}")
 endforeach()
 
+set(PROJECT_VERSION_STRING "${PROJECT_VERSION}" CACHE STRING "Project version")
 string(TOLOWER ${PROJECT_NAME} PROJECT_NAME_LOWER)
-set(LIBRARY_OUTPUT "${PROJECT_NAME_LOWER}-${PROJECT_VERSION}")
-
+if(NOT DEFINED LIBRARY_OUTPUT)
+  set(LIBRARY_OUTPUT "${PROJECT_NAME_LOWER}-${PROJECT_VERSION_STRING}")
+endif()
 
 enable_language(ASM_NASM)
 
@@ -40,10 +42,12 @@ set(NHOOK_ASM_DIR ${CMAKE_CURRENT_SOURCE_DIR}/asm)
 
 file(GLOB_RECURSE NHOOK_ASM_SOURCES CONFIGURE_DEPENDS ${NHOOK_ASM_DIR}/*.asm)
 
-set_source_files_properties(${ASM_SOURCES} PROPERTIES COMPILE_FLAGS "-f win64")
+set_source_files_properties(${ASM_SOURCES} PROPERTIES
+  COMPILE_FLAGS "-f win64"
+)
 
 set_source_files_properties(${ABSOLUTE_CAPSTONE_SOURCES} PROPERTIES
-COMPILE_FLAGS "-std=c99"
+  COMPILE_FLAGS "-std=c99"
 )
 
 add_library(${PROJECT_NAME_LOWER} SHARED ${NHOOK_SOURCES} ${NHOOK_ASM_SOURCES} ${ABSOLUTE_CAPSTONE_SOURCES})
