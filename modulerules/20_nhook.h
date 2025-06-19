@@ -22,13 +22,7 @@
  * SOFTWARE.
  */
 
-#ifndef __NH_GLOBAL_INIT__
-#define __NH_GLOBAL_INIT__
-
-#include "nerror.h"
-
-nerror_t nh_global_init(void);
-#endif // __NH_GLOBAL_INIT__
+#include "module.h"
 
 #ifdef __NTUTILS_H__
 NEPTUNE_MODULE_INIT(nh_global_init)

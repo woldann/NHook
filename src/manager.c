@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "manager.h"
+#include "nhook.h"
 #include "thread.h"
 #include "trampoline.h"
 
@@ -155,9 +155,9 @@ void NHOOK_API nh_destroy_manager(nhook_manager_t *nhook_manager)
 
 void *call_dynamic_func(void *func, uint8_t arg_count, void **args);
 
-nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager)
+nh_nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager)
 {
-	nerror_t ret;
+	nh_nerror_t ret;
 
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);
@@ -209,7 +209,8 @@ nh_update_remove_thread:
 
 			void *func = nhook->hook_function;
 
-			void *ret_value = call_dynamic_func(func, arg_count, args);
+			void *ret_value =
+				call_dynamic_func(func, arg_count, args);
 
 			void *ret_addr = nosu_push_addr + 1;
 
@@ -228,8 +229,8 @@ nh_update_return:
 	return ret;
 }
 
-void *nh_trampoline_v(nhook_manager_t *nhook_manager,
-				void *hook_function, va_list args)
+void *nh_trampoline_v(nhook_manager_t *nhook_manager, void *hook_function,
+		      va_list args)
 {
 	nhook_t *nhook = nh_find(nhook_manager, hook_function);
 	if (nhook == NULL)

@@ -22,42 +22,22 @@
  * SOFTWARE.
  */
 
-#ifndef __MANAGER_H__
-#define __MANAGER_H__
+#ifndef __MODULE_H__
+#define __MODULE_H__
 
-#include "hook.h"
+#include "nerror.h"
 
-#include "nmutex.h"
-#include "nthread.h"
+#include <windows.h>
 
-/**
- * @brief Manages all hooks and thread states for a specific process
- * 
- * Keeps track of process ID, synchronization mutex, thread handles and IDs,
- * counts of threads and hooks, and suspension counts.
- */
-struct nhook_manager {
-	DWORD pid; /**< Process ID */
-
-	NMUTEX mutex; /**< Mutex for thread-safe operations */
-
-	ntid_t *o_thread_ids; /**< Original thread IDs before hooking */
-	ntid_t *n_thread_ids; /**< New thread IDs after hooking */
-	size_t thread_ids_size; /**< Size of thread ID arrays */
-
-	HANDLE *threads; /**< Handles to the threads */
-	uint16_t thread_count; /**< Number of threads */
-	uint16_t suspend_count; /**< Number of suspended threads */
-
-	uint16_t max_hook_count; /**< Maximum number of hooks allowed */
+struct nh_tfunctions {
+	void *VirtualProtect;
+	// void *VirtualQuery;
 };
 
-/**
- * @brief Helper macro to get a hook by index from the hook manager
- */
-#define NHOOK_MANAGER_GET_HOOK(nhook_manager, index) \
-	(((nhook_t *)(((nhook_manager) + 1))) + i)
+extern struct nh_tfunctions nh_tfuncs;
 
-typedef struct nhook_manager nhook_manager_t;
+HMODULE nh_get_kernel32_module(void);
 
-#endif // !__MANAGER_H__
+nerror_t nh_global_init(void);
+
+#endif // !__MODULE_H__

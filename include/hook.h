@@ -25,9 +25,6 @@
 #ifndef __HOOK_H__
 #define __HOOK_H__
 
-#include "nerror.h"
-#include "nhook.h"
-
 #include "ntucc.h"
 
 #define NHOOK_FLAG_ENABLED 0x01
@@ -70,5 +67,7 @@ struct nhook {
  * @return true if valid, false otherwise
  */
 #define NHOOK_IS_VALID(nhook) ((nhook)->function != NULL)
+
+typedef struct nhook nhook_t;
 
 #endif // !__HOOK_H__

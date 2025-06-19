@@ -1,16 +1,10 @@
-#include <windows.h>
-
-#include "ntutils.h"
-#include "nerror.h"
+#include "module.h"
 
 #include "nhook.h"
 
-struct nhook_tfunctions {
-	void *VirtualProtect;
-	// void *VirtualQuery;
-} nh_funcs;
+struct nh_tfunctions nh_tfuncs;
 
-HMODULE nh_get_kernel32_module()
+HMODULE nh_get_kernel32_module(void)
 {
 	return GetModuleHandleA("kernel32");
 }
@@ -21,21 +15,12 @@ nerror_t nh_global_init(void)
 	if (kernel32 == NULL)
 		return GET_ERR(NHOOK_GET_KERNEL32_BASE_ERROR);
 
-	nh_funcs.VirtualProtect =
-		GetProcAddress(kernel32, "VirtualProtect");
-	// nh_funcs.VirtualQuery = GetProcAddress(libc_base, "VirtualQuery");
+	nh_tfuncs.VirtualProtect = GetProcAddress(kernel32, "VirtualProtect");
+	// nh_tfuncs.VirtualQuery = GetProcAddress(libc_base, "VirtualQuery");
 
-	if (nh_funcs.VirtualProtect ==
-	    NULL /* || nh_funcs.VirtualQuery == NULL */)
+	if (nh_tfuncs.VirtualProtect ==
+	    NULL /* || nh_tfuncs.VirtualQuery == NULL */)
 		return GET_ERR(NHOOK_GET_PROC_ADDRESS_ERROR);
 
 	return N_OK;
-}
-
-BOOL nh_virtual_protect(LPVOID lpAddress, SIZE_T dwSize,
-				  DWORD flNewProtect, PDWORD lpflOldProtect)
-{
-	ntu_set_default_cc();
-	return (BOOL)(int64_t)ntu_ucall(nh_funcs.VirtualProtect, lpAddress,
-					dwSize, flNewProtect, lpflOldProtect);
 }

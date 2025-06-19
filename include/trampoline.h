@@ -26,6 +26,7 @@
 #define __TRAMPOLINE_H__
 
 #include "manager.h"
+
 #include <stdarg.h>
 
 struct mem_args {
@@ -219,7 +220,7 @@ nh_trampoline_t *nh_trampoline_init();
 
 void nh_trampoline_destroy(nh_trampoline_t *tramp);
 
-void *nh_trampoline_ex(nhook_manager_t *nhook_manager,
-				   nhook_t *nhook, nh_trampoline_t *tramp, va_list args);
+void *nh_trampoline_ex(nhook_manager_t *nhook_manager, nhook_t *nhook,
+		       nh_trampoline_t *tramp, va_list args);
 
 #endif // !__TRAMPOLINE_H__

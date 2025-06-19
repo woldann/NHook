@@ -22,42 +22,18 @@
  * SOFTWARE.
  */
 
-#ifndef __MANAGER_H__
-#define __MANAGER_H__
+#include "module.h"
+#include "nhook.h"
 
-#include "hook.h"
+ntutils_t *NHOOK_API nh_get_ntutils(void)
+{
+	return ntu_get();
+}
 
-#include "nmutex.h"
-#include "nthread.h"
-
-/**
- * @brief Manages all hooks and thread states for a specific process
- * 
- * Keeps track of process ID, synchronization mutex, thread handles and IDs,
- * counts of threads and hooks, and suspension counts.
- */
-struct nhook_manager {
-	DWORD pid; /**< Process ID */
-
-	NMUTEX mutex; /**< Mutex for thread-safe operations */
-
-	ntid_t *o_thread_ids; /**< Original thread IDs before hooking */
-	ntid_t *n_thread_ids; /**< New thread IDs after hooking */
-	size_t thread_ids_size; /**< Size of thread ID arrays */
-
-	HANDLE *threads; /**< Handles to the threads */
-	uint16_t thread_count; /**< Number of threads */
-	uint16_t suspend_count; /**< Number of suspended threads */
-
-	uint16_t max_hook_count; /**< Maximum number of hooks allowed */
-};
-
-/**
- * @brief Helper macro to get a hook by index from the hook manager
- */
-#define NHOOK_MANAGER_GET_HOOK(nhook_manager, index) \
-	(((nhook_t *)(((nhook_manager) + 1))) + i)
-
-typedef struct nhook_manager nhook_manager_t;
-
-#endif // !__MANAGER_H__
+BOOL nh_virtual_protect(LPVOID lpAddress, SIZE_T dwSize, DWORD flNewProtect,
+			PDWORD lpflOldProtect)
+{
+	ntu_set_default_cc();
+	return (BOOL)(int64_t)ntu_ucall(nh_tfuncs.VirtualProtect, lpAddress,
+					dwSize, flNewProtect, lpflOldProtect);
+}

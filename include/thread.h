@@ -29,8 +29,7 @@
 
 #define NHOOK_MAX_IGNORED_ID_COUNT 2
 
-nerror_t transfer_threads(nhook_manager_t *nhook_manager,
-				    nhook_t *nhook);
+nerror_t transfer_threads(nhook_manager_t *nhook_manager, nhook_t *nhook);
 
 /**
  * @brief Resets thread management data in hook manager

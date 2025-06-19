@@ -22,11 +22,9 @@
  * SOFTWARE.
  */
 
-#include "hook.h"
-#include "nerror.h"
+#include "nhook.h"
 #include "trampoline.h"
 #include "thread.h"
-#include "manager.h"
 
 #include "ntosutils.h"
 
@@ -37,10 +35,10 @@ bool NHOOK_API nh_is_enabled_ex(nhook_t *nhook)
 	return (nhook->flags & NHOOK_FLAG_ENABLED) != 0;
 }
 
-nerror_t NHOOK_API nh_create(nhook_manager_t *nhook_manager, void *function,
-			     void *hook_function, uint8_t arg_count)
+nh_nerror_t NHOOK_API nh_create(nhook_manager_t *nhook_manager, void *function,
+				void *hook_function, uint8_t arg_count)
 {
-	nerror_t ret;
+	nh_nerror_t ret;
 
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);
@@ -85,11 +83,11 @@ nh_install_return:
 	return ret;
 }
 
-nerror_t NHOOK_API nh_create_with_mem(nhook_manager_t *nhook_manager,
-				      void *function, void *hook_function,
-				      uint8_t arg_count, void *mem)
+nh_nerror_t NHOOK_API nh_create_with_mem(nhook_manager_t *nhook_manager,
+					 void *function, void *hook_function,
+					 uint8_t arg_count, void *mem)
 {
-	nerror_t ret;
+	nh_nerror_t ret;
 
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);
@@ -192,12 +190,13 @@ static void nh_toggle_destroy(nhook_manager_t *nhook_manager, int8_t fu)
 		ntu_destroy();
 }
 
-BOOL nh_virtual_protect(LPVOID lpAddress, SIZE_T dwSize,
-				  DWORD flNewProtect, PDWORD lpflOldProtect);
+BOOL nh_virtual_protect(LPVOID lpAddress, SIZE_T dwSize, DWORD flNewProtect,
+			PDWORD lpflOldProtect);
 
-nerror_t NHOOK_API nh_enable_ex(nhook_manager_t *nhook_manager, nhook_t *nhook)
+nh_nerror_t NHOOK_API nh_enable_ex(nhook_manager_t *nhook_manager,
+				   nhook_t *nhook)
 {
-	nerror_t ret;
+	nh_nerror_t ret;
 
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);
@@ -269,7 +268,8 @@ nh_enable_ex_cs_close_and_return:
 						  (uint64_t)mem + 1, 1, &insn);
 
 				if (count > 0) {
-					if (!nh_trampoline_add_insn(nhook->tramp, insn))
+					if (!nh_trampoline_add_insn(
+						    nhook->tramp, insn))
 						goto nh_enable_ex_add_insn_error;
 
 					break;
@@ -289,7 +289,8 @@ nh_enable_ex_cs_close_and_return:
 					  &insn);
 
 			if (count > 0) {
-				if (!nh_trampoline_add_insn(nhook->tramp, insn)) {
+				if (!nh_trampoline_add_insn(nhook->tramp,
+							    insn)) {
 nh_enable_ex_add_insn_error:
 					ret = GET_ERR(NHOOK_ADD_INSN_ERROR);
 					goto nh_enable_ex_cs_close_and_return;
@@ -348,8 +349,8 @@ nh_enable_ex_return_without_fc:
 	return ret;
 }
 
-nerror_t NHOOK_API nh_enable(nhook_manager_t *nhook_manager,
-			     void *hook_function)
+nh_nerror_t NHOOK_API nh_enable(nhook_manager_t *nhook_manager,
+				void *hook_function)
 {
 	nhook_t *nhook = nh_find(nhook_manager, hook_function);
 	if (nhook == NULL)
@@ -358,9 +359,9 @@ nerror_t NHOOK_API nh_enable(nhook_manager_t *nhook_manager,
 	return nh_enable_ex(nhook_manager, nhook);
 }
 
-nerror_t NHOOK_API nh_enable_all(nhook_manager_t *nhook_manager)
+nh_nerror_t NHOOK_API nh_enable_all(nhook_manager_t *nhook_manager)
 {
-	nerror_t ret = N_OK;
+	nh_nerror_t ret = N_OK;
 
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);
@@ -392,9 +393,10 @@ nerror_t NHOOK_API nh_enable_all(nhook_manager_t *nhook_manager)
 	return ret;
 }
 
-nerror_t NHOOK_API nh_disable_ex(nhook_manager_t *nhook_manager, nhook_t *nhook)
+nh_nerror_t NHOOK_API nh_disable_ex(nhook_manager_t *nhook_manager,
+				    nhook_t *nhook)
 {
-	nerror_t ret;
+	nh_nerror_t ret;
 
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);
@@ -454,8 +456,8 @@ nh_disable_ex_return_without_fc:
 	return ret;
 }
 
-nerror_t NHOOK_API nh_disable(nhook_manager_t *nhook_manager,
-			      void *hook_function)
+nh_nerror_t NHOOK_API nh_disable(nhook_manager_t *nhook_manager,
+				 void *hook_function)
 {
 	nhook_t *nhook = nh_find(nhook_manager, hook_function);
 	if (nhook == NULL)
@@ -464,9 +466,9 @@ nerror_t NHOOK_API nh_disable(nhook_manager_t *nhook_manager,
 	return nh_disable_ex(nhook_manager, nhook);
 }
 
-nerror_t NHOOK_API nh_disable_all(nhook_manager_t *nhook_manager)
+nh_nerror_t NHOOK_API nh_disable_all(nhook_manager_t *nhook_manager)
 {
-	nerror_t ret = N_OK;
+	nh_nerror_t ret = N_OK;
 
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);

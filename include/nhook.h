@@ -29,7 +29,33 @@
 #define NHOOK_API __declspec(dllexport)
 #else // !NHOOK_API
 #define NHOOK_API __declspec(dllimport)
+#ifndef NHOOK_LITE
+#define NHOOK_LITE
+#endif // !NHOOK_LITE
 #endif // !NHOOK_API
+
+#ifdef NHOOK_LITE
+typedef int nh_nerror_t;
+
+#define NH_OK 0x00 // No error
+#define NH_ERR 0x01 // Generic error code
+#define NH_HAS_ERROR(error) (error != NH_OK)
+#define NH_HAS_ERR(error) (HAS_ERROR(error))
+
+struct ntutils;
+typedef struct ntutils ntutils_t;
+struct nhook;
+typedef struct nhook nhook_t;
+struct nhook_manager;
+typedef struct nhook_manager nhook_manager_t;
+#else // !NHOOK_LITE
+#include "nerror.h"
+typedef nerror_t nh_nerror_t;
+
+#include "ntutils.h"
+#include "hook.h"
+#include "manager.h"
+#endif // NHOOK_LITE
 
 #define NHOOK_ERROR 0x4500
 #define NHOOK_FIND_ERROR 0x4501
@@ -51,32 +77,11 @@
 #define NHOOK_ADD_INSN_ERROR 0x4512
 #define NHOOK_CS_OPTION_ERROR 0x4513
 
-struct nhook;
-struct nhook_manager;
-typedef struct nhook nhook_t;
-typedef struct nhook_manager nhook_manager_t;
-
 #include <stdint.h>
 #include <stdbool.h>
 #include <windows.h>
 
-#ifndef __NERROR_H__
-#define __NERROR_H__
-
-typedef int nerror_t;
-
-#ifdef NERROR_LEVEL
-#undef NERROR_LEVEL
-#endif // NERROR_LEVEL
-
-#define NERROR_LEVEL 1
-
-#define N_OK 0x00 // No error
-#define N_ERR 0x01 // Generic error code
-#define HAS_ERROR(error) (error != N_OK)
-#define HAS_ERR(error) (HAS_ERROR(error))
-
-#endif // !__NERROR_H__
+ntutils_t *NHOOK_API nh_get_ntutils(void);
 
 /**
  * @brief Checks whether a hook is currently enabled (extended)
@@ -117,10 +122,10 @@ nhook_t *NHOOK_API nh_find(nhook_manager_t *nhook_manager, void *hook_function);
  * @param function Pointer to original function to hook
  * @param hook_function Pointer to the hook function
  * @param arg_count Number of arguments of the function
- * @return nerror_t error code
+ * @return nh_nerror_t error code
  */
-nerror_t NHOOK_API nh_create(nhook_manager_t *nhook_manager, void *function,
-			     void *hook_function, uint8_t arg_count);
+nh_nerror_t NHOOK_API nh_create(nhook_manager_t *nhook_manager, void *function,
+				void *hook_function, uint8_t arg_count);
 
 /** 
  * @brief Creates a hook on an already hooked function with custom memory patch
@@ -135,60 +140,61 @@ nerror_t NHOOK_API nh_create(nhook_manager_t *nhook_manager, void *function,
  * @param arg_count Number of arguments of the function
  * @param mem Pointer to custom memory patch bytes
  * @param affected_length Length of memory patch in bytes
- * @return nerror_t error code
+ * @return nh_nerror_t error code
  */
-nerror_t NHOOK_API nh_create_with_mem(nhook_manager_t *nhook_manager,
-				      void *function, void *hook_function,
-				      uint8_t arg_count, void *mem);
+nh_nerror_t NHOOK_API nh_create_with_mem(nhook_manager_t *nhook_manager,
+					 void *function, void *hook_function,
+					 uint8_t arg_count, void *mem);
 
 /**
  * @brief Enables a specific hook (extended version)
  * @param nhook_manager Hook manager instance
  * @param nhook Pointer to hook instance
- * @return nerror_t error code
+ * @return nh_nerror_t error code
  */
-nerror_t NHOOK_API nh_enable_ex(nhook_manager_t *nhook_manager, nhook_t *nhook);
+nh_nerror_t NHOOK_API nh_enable_ex(nhook_manager_t *nhook_manager,
+				   nhook_t *nhook);
 
 /**
  * @brief Enables a hook by hook function pointer
  * @param nhook_manager Hook manager instance
  * @param hook_function Pointer to hook function to enable
- * @return nerror_t error code
+ * @return nh_nerror_t error code
  */
-nerror_t NHOOK_API nh_enable(nhook_manager_t *nhook_manager,
-			     void *hook_function);
+nh_nerror_t NHOOK_API nh_enable(nhook_manager_t *nhook_manager,
+				void *hook_function);
 
 /**
  * @brief Enables all hooks managed by the manager
  * @param nhook_manager Hook manager instance
- * @return nerror_t error code
+ * @return nh_nerror_t error code
  */
-nerror_t NHOOK_API nh_enable_all(nhook_manager_t *nhook_manager);
+nh_nerror_t NHOOK_API nh_enable_all(nhook_manager_t *nhook_manager);
 
 /**
  * @brief Disables a specific hook (extended version)
  * @param nhook_manager Hook manager instance
  * @param nhook Pointer to hook instance
- * @return nerror_t error code
+ * @return nh_nerror_t error code
  */
-nerror_t NHOOK_API nh_disable_ex(nhook_manager_t *nhook_manager,
-				 nhook_t *nhook);
+nh_nerror_t NHOOK_API nh_disable_ex(nhook_manager_t *nhook_manager,
+				    nhook_t *nhook);
 
 /**
  * @brief Disables a hook by hook function pointer
  * @param nhook_manager Hook manager instance
  * @param hook_function Pointer to hook function to disable
- * @return nerror_t error code
+ * @return nh_nerror_t error code
  */
-nerror_t NHOOK_API nh_disable(nhook_manager_t *nhook_manager,
-			      void *hook_function);
+nh_nerror_t NHOOK_API nh_disable(nhook_manager_t *nhook_manager,
+				 void *hook_function);
 
 /**
  * @brief Disables all hooks managed by the manager
  * @param nhook_manager Hook manager instance
- * @return nerror_t error code
+ * @return nh_nerror_t error code
  */
-nerror_t NHOOK_API nh_disable_all(nhook_manager_t *nhook_manager);
+nh_nerror_t NHOOK_API nh_disable_all(nhook_manager_t *nhook_manager);
 
 /**
  * @brief Destroys a specific hook (extended version)
@@ -236,8 +242,6 @@ void *NHOOK_API nh_trampoline_v(nhook_manager_t *nhook_manager,
 void *NHOOK_API nh_trampoline(nhook_manager_t *nhook_manager,
 			      void *hook_function, ...);
 
-
-
 /**
  * @brief Gets the count of currently enabled hooks in the manager
  * @param nhook_manager Hook manager instance
@@ -275,8 +279,8 @@ void NHOOK_API nh_destroy_manager(nhook_manager_t *nhook_manager);
  * Without calling this, hooks will not become active or behave properly.
  * 
  * @param nhook_manager Hook manager instance
- * @return nerror_t error code
+ * @return nh_nerror_t error code
  */
-nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager);
+nh_nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager);
 
 #endif // !__NHOOK_H__

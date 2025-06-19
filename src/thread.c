@@ -23,6 +23,7 @@
  */
 
 #include "thread.h"
+#include "nhook.h"
 
 #include "ntosutils.h"
 #include "nmem.h"
@@ -45,8 +46,7 @@ static uint16_t get_ignored_ids(ntid_t *ignored_ids)
 	return count;
 }
 
-nerror_t transfer_threads(nhook_manager_t *nhook_manager,
-				    nhook_t *nhook)
+nerror_t transfer_threads(nhook_manager_t *nhook_manager, nhook_t *nhook)
 {
 	HANDLE *threads = nhook_manager->threads;
 	HANDLE thread;

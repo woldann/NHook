@@ -23,10 +23,9 @@
  */
 
 #include "trampoline.h"
-#include "nmem.h"
+#include "nhook.h"
 
-#include "nthread.h"
-#include "ntutils.h"
+#include "nmem.h"
 
 #include <capstone/capstone.h>
 
@@ -1895,7 +1894,8 @@ static void proc_insns_select_f(void *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	nh_trampoline_t *tramp = (nh_trampoline_t *)(args - sizeof(proc_insns_fn));
+	nh_trampoline_t *tramp =
+		(nh_trampoline_t *)(args - sizeof(proc_insns_fn));
 	insn_args_rw_t *f_args = &tramp->f_args;
 	proc_insn_fn f_func = f_args->func;
 
@@ -1940,7 +1940,8 @@ static void proc_insns_select_f_s(void *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	nh_trampoline_t *tramp = (nh_trampoline_t *)(args - sizeof(proc_insns_fn));
+	nh_trampoline_t *tramp =
+		(nh_trampoline_t *)(args - sizeof(proc_insns_fn));
 	insn_args_rw_t *f_args = &tramp->f_args;
 	insn_args_rw_t *s_args = &tramp->s_args;
 
@@ -2008,7 +2009,8 @@ static void proc_insns_select_f_s(void *args)
 
 static void proc_insns_select(void *args)
 {
-	nh_trampoline_t *tramp = (nh_trampoline_t *)(args - sizeof(proc_insns_fn));
+	nh_trampoline_t *tramp =
+		(nh_trampoline_t *)(args - sizeof(proc_insns_fn));
 	insn_args_rw_t *f_args = &tramp->f_args;
 	insn_args_rw_t *s_args = &tramp->s_args;
 
@@ -2067,8 +2069,8 @@ void nh_trampoline_destroy(nh_trampoline_t *tramp)
 	N_FREE(tramp);
 }
 
-void *nh_trampoline_ex(nhook_manager_t *nhook_manager,
-				   nhook_t *nhook, nh_trampoline_t *tramp, va_list args)
+void *nh_trampoline_ex(nhook_manager_t *nhook_manager, nhook_t *nhook,
+		       nh_trampoline_t *tramp, va_list args)
 {
 #ifndef NTUTILS_GLOBAL_CC
 	ntu_set_cc(nhook->cc);
