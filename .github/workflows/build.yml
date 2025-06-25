@@ -1,0 +1,62 @@
+name: Build Project
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-mingw:
+    name: Build with MinGW (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64 nasm ninja-build
+
+      - name: Configure CMake
+        run: |
+          cmake -B build -G Ninja \
+                -DCMAKE_SYSTEM_NAME=Windows \
+                -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+                -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++
+
+      - name: Build project
+        run: cmake --build build --config Release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nhook-mingw
+          path: build/nhook-*.dll
+
+  build-msvc:
+    name: Build with MSVC (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: Install NASM
+        run: choco install nasm -y
+
+      - name: Configure CMake
+        run: cmake -B build -G "Ninja"
+
+      - name: Build project
+        run: cmake --build build --config Release
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nhook-msvc
+          path: build/nhook-*.dll

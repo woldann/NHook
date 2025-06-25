@@ -29,7 +29,7 @@
 #include "nmem.h"
 #include "ntosutils.h"
 
-bool NHOOK_API nh_is_enabled(nhook_manager_t *nhook_manager,
+NHOOK_API bool nh_is_enabled(nhook_manager_t *nhook_manager,
 			     void *hook_function)
 {
 	nhook_t *nhook = nh_find(nhook_manager, hook_function);
@@ -39,7 +39,7 @@ bool NHOOK_API nh_is_enabled(nhook_manager_t *nhook_manager,
 	return nh_is_enabled_ex(nhook);
 }
 
-nhook_t *NHOOK_API nh_find_with_function(nhook_manager_t *nhook_manager,
+NHOOK_API nhook_t *nh_find_with_function(nhook_manager_t *nhook_manager,
 					 void *function)
 {
 	uint16_t i;
@@ -55,7 +55,7 @@ nhook_t *NHOOK_API nh_find_with_function(nhook_manager_t *nhook_manager,
 	return NULL;
 }
 
-nhook_t *NHOOK_API nh_find(nhook_manager_t *nhook_manager, void *hook_function)
+NHOOK_API nhook_t *nh_find(nhook_manager_t *nhook_manager, void *hook_function)
 {
 	uint16_t i;
 	for (i = 0; i < nhook_manager->max_hook_count; i++) {
@@ -70,7 +70,7 @@ nhook_t *NHOOK_API nh_find(nhook_manager_t *nhook_manager, void *hook_function)
 	return NULL;
 }
 
-uint16_t NHOOK_API nh_manager_get_enabled_count(nhook_manager_t *nhook_manager)
+NHOOK_API uint16_t nh_manager_get_enabled_count(nhook_manager_t *nhook_manager)
 {
 	uint16_t count = 0;
 
@@ -88,7 +88,7 @@ uint16_t NHOOK_API nh_manager_get_enabled_count(nhook_manager_t *nhook_manager)
 	return count;
 }
 
-uint16_t NHOOK_API nh_manager_get_count(nhook_manager_t *nhook_manager)
+NHOOK_API uint16_t nh_manager_get_count(nhook_manager_t *nhook_manager)
 {
 	uint16_t count = 0;
 
@@ -105,7 +105,7 @@ uint16_t NHOOK_API nh_manager_get_count(nhook_manager_t *nhook_manager)
 	return count;
 }
 
-nhook_manager_t *NHOOK_API nh_create_manager(DWORD pid, uint16_t max_hook_count)
+NHOOK_API nhook_manager_t *nh_create_manager(DWORD pid, uint16_t max_hook_count)
 {
 	size_t mem_len =
 		sizeof(nhook_manager_t) + sizeof(nhook_t) * max_hook_count;
@@ -137,7 +137,7 @@ nhook_manager_t *NHOOK_API nh_create_manager(DWORD pid, uint16_t max_hook_count)
 	return manager;
 }
 
-void NHOOK_API nh_destroy_manager(nhook_manager_t *nhook_manager)
+NHOOK_API void nh_destroy_manager(nhook_manager_t *nhook_manager)
 {
 	if (nhook_manager == NULL)
 		return;
@@ -155,7 +155,7 @@ void NHOOK_API nh_destroy_manager(nhook_manager_t *nhook_manager)
 
 void *call_dynamic_func(void *func, uint8_t arg_count, void **args);
 
-nh_nerror_t NHOOK_API nh_update(nhook_manager_t *nhook_manager)
+NHOOK_API nh_nerror_t nh_update(nhook_manager_t *nhook_manager)
 {
 	nh_nerror_t ret;
 
@@ -239,7 +239,7 @@ void *nh_trampoline_v(nhook_manager_t *nhook_manager, void *hook_function,
 	return nh_trampoline_ex(nhook_manager, nhook, nhook->tramp, args);
 }
 
-void *NHOOK_API nh_trampoline(nhook_manager_t *nhook_manager,
+NHOOK_API void *nh_trampoline(nhook_manager_t *nhook_manager,
 			      void *hook_function, ...)
 {
 	va_list args;

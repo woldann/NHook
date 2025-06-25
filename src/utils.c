@@ -24,7 +24,7 @@
 
 #include "core.h"
 
-ntutils_t *NHOOK_API nh_get_ntutils(void)
+NHOOK_API ntutils_t *nh_get_ntutils(void)
 {
 	return ntu_get();
 }

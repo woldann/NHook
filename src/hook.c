@@ -30,12 +30,12 @@
 
 #include <capstone/capstone.h>
 
-bool NHOOK_API nh_is_enabled_ex(nhook_t *nhook)
+NHOOK_API bool nh_is_enabled_ex(nhook_t *nhook)
 {
 	return (nhook->flags & NHOOK_FLAG_ENABLED) != 0;
 }
 
-nh_nerror_t NHOOK_API nh_create(nhook_manager_t *nhook_manager, void *function,
+NHOOK_API nh_nerror_t nh_create(nhook_manager_t *nhook_manager, void *function,
 				void *hook_function, uint8_t arg_count)
 {
 	nh_nerror_t ret;
@@ -83,7 +83,7 @@ nh_install_return:
 	return ret;
 }
 
-nh_nerror_t NHOOK_API nh_create_with_mem(nhook_manager_t *nhook_manager,
+NHOOK_API nh_nerror_t nh_create_with_mem(nhook_manager_t *nhook_manager,
 					 void *function, void *hook_function,
 					 uint8_t arg_count, void *mem)
 {
@@ -193,7 +193,7 @@ static void nh_toggle_destroy(nhook_manager_t *nhook_manager, int8_t fu)
 BOOL nh_virtual_protect(LPVOID lpAddress, SIZE_T dwSize, DWORD flNewProtect,
 			PDWORD lpflOldProtect);
 
-nh_nerror_t NHOOK_API nh_enable_ex(nhook_manager_t *nhook_manager,
+NHOOK_API nh_nerror_t nh_enable_ex(nhook_manager_t *nhook_manager,
 				   nhook_t *nhook)
 {
 	nh_nerror_t ret;
@@ -349,7 +349,7 @@ nh_enable_ex_return_without_fc:
 	return ret;
 }
 
-nh_nerror_t NHOOK_API nh_enable(nhook_manager_t *nhook_manager,
+NHOOK_API nh_nerror_t nh_enable(nhook_manager_t *nhook_manager,
 				void *hook_function)
 {
 	nhook_t *nhook = nh_find(nhook_manager, hook_function);
@@ -359,7 +359,7 @@ nh_nerror_t NHOOK_API nh_enable(nhook_manager_t *nhook_manager,
 	return nh_enable_ex(nhook_manager, nhook);
 }
 
-nh_nerror_t NHOOK_API nh_enable_all(nhook_manager_t *nhook_manager)
+NHOOK_API nh_nerror_t nh_enable_all(nhook_manager_t *nhook_manager)
 {
 	nh_nerror_t ret = N_OK;
 
@@ -393,7 +393,7 @@ nh_nerror_t NHOOK_API nh_enable_all(nhook_manager_t *nhook_manager)
 	return ret;
 }
 
-nh_nerror_t NHOOK_API nh_disable_ex(nhook_manager_t *nhook_manager,
+NHOOK_API nh_nerror_t nh_disable_ex(nhook_manager_t *nhook_manager,
 				    nhook_t *nhook)
 {
 	nh_nerror_t ret;
@@ -456,7 +456,7 @@ nh_disable_ex_return_without_fc:
 	return ret;
 }
 
-nh_nerror_t NHOOK_API nh_disable(nhook_manager_t *nhook_manager,
+NHOOK_API nh_nerror_t nh_disable(nhook_manager_t *nhook_manager,
 				 void *hook_function)
 {
 	nhook_t *nhook = nh_find(nhook_manager, hook_function);
@@ -466,7 +466,7 @@ nh_nerror_t NHOOK_API nh_disable(nhook_manager_t *nhook_manager,
 	return nh_disable_ex(nhook_manager, nhook);
 }
 
-nh_nerror_t NHOOK_API nh_disable_all(nhook_manager_t *nhook_manager)
+NHOOK_API nh_nerror_t nh_disable_all(nhook_manager_t *nhook_manager)
 {
 	nh_nerror_t ret = N_OK;
 
@@ -500,21 +500,21 @@ nh_nerror_t NHOOK_API nh_disable_all(nhook_manager_t *nhook_manager)
 	return ret;
 }
 
-void NHOOK_API nh_destroy_ex(nhook_manager_t *nhook_manager, nhook_t *nhook)
+NHOOK_API void nh_destroy_ex(nhook_manager_t *nhook_manager, nhook_t *nhook)
 {
 	nh_disable_ex(nhook_manager, nhook);
 	nh_trampoline_destroy(nhook->tramp);
 	NHOOK_SET_INVALID(nhook);
 }
 
-void NHOOK_API nh_destroy(nhook_manager_t *nhook_manager, void *hook_function)
+NHOOK_API void nh_destroy(nhook_manager_t *nhook_manager, void *hook_function)
 {
 	nhook_t *nhook = nh_find(nhook_manager, hook_function);
 	if (nhook != NULL)
 		return nh_destroy_ex(nhook_manager, hook_function);
 }
 
-void NHOOK_API nh_destroy_all(nhook_manager_t *nhook_manager)
+NHOOK_API void nh_destroy_all(nhook_manager_t *nhook_manager)
 {
 	NMUTEX mutex = nhook_manager->mutex;
 	NMUTEX_LOCK(mutex);
