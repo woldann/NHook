@@ -25,11 +25,16 @@
 #ifndef __NHOOK_H__
 #define __NHOOK_H__
 
-#ifdef NHOOK_EXPORT
+#ifndef NHOOK_MANUAL
+
 #define NHOOK_API __declspec(dllexport)
-#else // !NHOOK_API
-#define NHOOK_API __declspec(dllimport)
-#endif // !NHOOK_API
+
+struct ntutils;
+typedef struct ntutils ntutils_t;
+struct nhook;
+typedef struct nhook nhook_t;
+struct nhook_manager;
+typedef struct nhook_manager nhook_manager_t;
 
 typedef int nh_nerror_t;
 
@@ -38,14 +43,7 @@ typedef int nh_nerror_t;
 #define NH_HAS_ERROR(error) (error != NH_OK)
 #define NH_HAS_ERR(error) (NH_HAS_ERROR(error))
 
-#ifndef NHOOK_FULL
-struct ntutils;
-typedef struct ntutils ntutils_t;
-struct nhook;
-typedef struct nhook nhook_t;
-struct nhook_manager;
-typedef struct nhook_manager nhook_manager_t;
-#endif // !NHOOK_FULL
+#endif // !NHOOK_MANUAL
 
 #define NHOOK_ERROR 0x4500
 #define NHOOK_FIND_ERROR 0x4501

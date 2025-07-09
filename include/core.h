@@ -30,10 +30,6 @@
 #include "manager.h"
 #include "hook.h"
 
-#ifndef NHOOK_FULL
-#define NHOOK_FULL
-#endif // !NHOOK_FULL
-
 #include "nhook.h"
 
 struct nh_tfunctions {
