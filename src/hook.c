@@ -75,7 +75,7 @@ NHOOK_API nh_nerror_t nh_create(nhook_manager_t *nhook_manager, void *function,
 	ret = N_OK;
 
 #ifndef NTU_GLOBAL_CC
-	nhook->cc = NTUCC_DEFAULT_CC;
+	nhook->cc = NTU_DEFAULT_CC;
 #endif /* ifndef NTU_GLOBAL_CC */
 
 nh_install_return:
