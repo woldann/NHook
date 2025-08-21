@@ -351,7 +351,7 @@ static void proc_jmp(insn_args_rw_t *args)
 
 	union op_value *op_value = &args->jmp.op_value;
 	void *val = get_op_value(op_value);
-	val += args->jmp.jmp_add;
+	val = (void *)((uint64_t)val + (uint64_t)args->jmp.jmp_add);
 
 	int8_t size = args->jmp.size;
 	if (is_op_value_mem(op_value)) {
@@ -399,7 +399,7 @@ static void proc_call(insn_args_rw_t *args)
 	int8_t size = args->call.size;
 
 	void *rsp = NTHREAD_GET_REG(nthread, NTHREAD_RSP);
-	void *new_rsp = rsp - size;
+	void *new_rsp = (void *)((uint64_t)rsp - (int64_t)size);
 	NTHREAD_SET_REG(nthread, NTHREAD_RSP, new_rsp);
 
 	if (is_op_value_mem(op_value)) {
@@ -917,7 +917,7 @@ static void proc_push(insn_args_rw_t *args)
 	int8_t size = args->push.size;
 
 	void *rsp = NTHREAD_GET_REG(nthread, NTHREAD_RSP);
-	void *new_rsp = rsp - size;
+	void *new_rsp = (void *)((uint64_t)rsp - (int64_t)size);
 	NTHREAD_SET_REG(nthread, NTHREAD_RSP, new_rsp);
 
 	if (is_op_value_mem(op_value)) {
@@ -1084,7 +1084,7 @@ static void *insns_args_read(insn_args_rw_t *args)
 
 static void proc_insns_f(insn_args_rw_t *args)
 {
-	insn_args_rw_t *f_args = (void *)args - INSN_ARGS_WRITE_DIFF;
+	insn_args_rw_t *f_args = (void *)((uint64_t)args - INSN_ARGS_WRITE_DIFF);
 	f_args->func(f_args);
 }
 
@@ -1093,9 +1093,9 @@ static void proc_insns_f_s(insn_args_rw_t *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *f_args = (void *)args - INSN_ARGS_WRITE_DIFF;
+	insn_args_rw_t *f_args = (void *)((uint64_t)args - INSN_ARGS_WRITE_DIFF);
 	insn_args_rw_t *s_args =
-		((void *)(f_args + 1)) - INSN_ARGS_READWRITE_DIFF;
+		(void *) ((uint64_t)(f_args + 1) - INSN_ARGS_READWRITE_DIFF);
 
 	f_args->func(f_args);
 	nthread->n_ctx.Rip++;
@@ -1107,8 +1107,8 @@ static void proc_insns_f_sw(insn_args_rw_t *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *f_args = (void *)args - INSN_ARGS_WRITE_DIFF;
-	insn_args_rw_t *s_args = ((void *)(f_args + 1)) - INSN_ARGS_READ_DIFF;
+	insn_args_rw_t *f_args = (void *)((uint64_t)args - INSN_ARGS_WRITE_DIFF);
+	insn_args_rw_t *s_args = (void *)((uint64_t)(f_args + 1) - INSN_ARGS_READ_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1136,9 +1136,9 @@ static void proc_insns_f_sr(insn_args_rw_t *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *f_args = (void *)args - INSN_ARGS_WRITE_DIFF;
+	insn_args_rw_t *f_args = (void *)((uint64_t)args - INSN_ARGS_WRITE_DIFF);
 	insn_args_rw_t *s_args =
-		((void *)(f_args + 1)) - INSN_ARGS_READWRITE_DIFF;
+		(void *)((uint64_t)(f_args + 1) - INSN_ARGS_READWRITE_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1166,8 +1166,8 @@ static void proc_insns_f_srw(insn_args_rw_t *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *f_args = (void *)args - INSN_ARGS_WRITE_DIFF;
-	insn_args_rw_t *s_args = ((void *)(f_args + 1)) - INSN_ARGS_READ_DIFF;
+	insn_args_rw_t *f_args = (void *)((uint64_t)args - INSN_ARGS_WRITE_DIFF);
+	insn_args_rw_t *s_args = (void *)((uint64_t)(f_args + 1) - INSN_ARGS_READ_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1224,7 +1224,7 @@ static void proc_insns_fw_s(insn_args_rw_t *f_args)
 	nthread_t *nthread = &ntutils->nthread;
 
 	insn_args_rw_t *s_args =
-		((void *)(f_args + 1)) - INSN_ARGS_READWRITE_DIFF;
+		(void *)((uint64_t)(f_args + 1) - INSN_ARGS_READWRITE_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1250,7 +1250,7 @@ static void proc_insns_fw_sw(insn_args_rw_t *f_args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *s_args = ((void *)(f_args + 1)) - INSN_ARGS_READ_DIFF;
+	insn_args_rw_t *s_args = (void *)((uint64_t)(f_args + 1) - INSN_ARGS_READ_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1267,16 +1267,16 @@ static void proc_insns_fw_sw(insn_args_rw_t *f_args)
 	s_func(s_args);
 
 	void *stack_begin = nthread_stack_begin(nthread);
-	void *stack_end = stack_begin + NTHREAD_STACK_ADD;
+	void *stack_end = (void*)((uint64_t)stack_begin + NTHREAD_STACK_ADD);
 
 	int8_t f_write_size = f_args->write_size;
 	int8_t s_write_size = s_args->write_size;
 
 	void *f_write = f_args->write;
-	void *f_write_end = f_write + f_write_size;
+	void *f_write_end = (void *)((uint64_t)f_write + f_write_size);
 
 	void *s_write = s_args->write;
-	void *s_write_end = s_write + s_write_size;
+	void *s_write_end = (void *)((uint64_t)s_write + s_write_size);
 
 	bool f_in_stack = f_write_end > stack_begin && f_write < stack_end;
 	bool s_in_stack = s_write_end > stack_begin && s_write < stack_end;
@@ -1331,7 +1331,7 @@ static void proc_insns_fw_sr(insn_args_rw_t *f_args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *s_args = ((void *)(f_args + 1)) - INSN_ARGS_WRITE_DIFF;
+	insn_args_rw_t *s_args = (void *)((uint64_t)(f_args + 1) - INSN_ARGS_WRITE_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1365,7 +1365,7 @@ static void proc_insns_fw_srw(insn_args_rw_t *f_args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *s_args = ((void *)(f_args + 1)) - INSN_ARGS_READ_DIFF;
+	insn_args_rw_t *s_args = (void *)((uint64_t)(f_args + 1) - INSN_ARGS_READ_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1390,16 +1390,16 @@ static void proc_insns_fw_srw(insn_args_rw_t *f_args)
 	s_func(s_args);
 
 	void *stack_begin = nthread_stack_begin(nthread);
-	void *stack_end = stack_begin + NTHREAD_STACK_ADD;
+	void *stack_end = (void *)((uint64_t)stack_begin + NTHREAD_STACK_ADD);
 
 	int8_t f_write_size = f_args->write_size;
 	int8_t s_write_size = s_args->write_size;
 
 	void *f_write = f_args->write;
-	void *f_write_end = f_write + f_write_size;
+	void *f_write_end = (void *)((uint64_t)f_write + f_write_size);
 
 	void *s_write = s_args->write;
-	void *s_write_end = s_write + s_write_size;
+	void *s_write_end = (void *)((uint64_t)s_write + s_write_size);
 
 	bool f_in_stack = f_write_end > stack_begin && f_write < stack_end;
 	bool s_in_stack = s_write_end > stack_begin && s_write < stack_end;
@@ -1454,7 +1454,7 @@ static void proc_insns_fr(insn_args_rw_t *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *f_args = (void *)args - INSN_ARGS_WRITE_DIFF;
+	insn_args_rw_t *f_args = (void *)((uint64_t)args - INSN_ARGS_WRITE_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1477,8 +1477,8 @@ static void proc_insns_fr_s(insn_args_rw_t *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *f_args = (void *)args - INSN_ARGS_WRITE_DIFF;
-	insn_args_rw_t *s_args = ((void *)(f_args + 1)) - INSN_ARGS_WRITE_DIFF;
+	insn_args_rw_t *f_args = (void *)((uint64_t)args - INSN_ARGS_WRITE_DIFF);
+	insn_args_rw_t *s_args = (void *)((uint64_t)(f_args + 1) - INSN_ARGS_WRITE_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1504,8 +1504,8 @@ static void proc_insns_fr_sw(insn_args_rw_t *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *f_args = (void *)args - INSN_ARGS_WRITE_DIFF;
-	insn_args_rw_t *s_args = f_args + 1;
+	insn_args_rw_t *f_args = (void *)((uint64_t)args - INSN_ARGS_WRITE_DIFF);
+	insn_args_rw_t *s_args = (void *)(f_args + 1);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1539,8 +1539,8 @@ static void proc_insns_fr_sr(insn_args_rw_t *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *f_args = (void *)args - INSN_ARGS_WRITE_DIFF;
-	insn_args_rw_t *s_args = ((void *)(f_args + 1)) - INSN_ARGS_WRITE_DIFF;
+	insn_args_rw_t *f_args = (void *)((uint64_t)args - INSN_ARGS_WRITE_DIFF);
+	insn_args_rw_t *s_args = (void *)((uint64_t)(f_args + 1) - INSN_ARGS_WRITE_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1570,8 +1570,8 @@ static void proc_insns_fr_srw(insn_args_rw_t *args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *f_args = (void *)args - INSN_ARGS_WRITE_DIFF;
-	insn_args_rw_t *s_args = f_args + 1;
+	insn_args_rw_t *f_args = (void *)((uint64_t)args - INSN_ARGS_WRITE_DIFF);
+	insn_args_rw_t *s_args = (void *)(f_args + 1);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1636,7 +1636,7 @@ static void proc_insns_frw_s(insn_args_rw_t *f_args)
 	ntutils_t *ntutils = ntu_get();
 	nthread_t *nthread = &ntutils->nthread;
 
-	insn_args_rw_t *s_args = ((void *)(f_args + 1)) - INSN_ARGS_WRITE_DIFF;
+	insn_args_rw_t *s_args = (void *)((uint64_t)(f_args + 1) - INSN_ARGS_WRITE_DIFF);
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1691,16 +1691,16 @@ static void proc_insns_frw_sw(insn_args_rw_t *f_args)
 	s_func(s_args);
 
 	void *stack_begin = nthread_stack_begin(nthread);
-	void *stack_end = stack_begin + NTHREAD_STACK_ADD;
+	void *stack_end = (void *)((uint64_t)stack_begin + NTHREAD_STACK_ADD);
 
 	int8_t f_write_size = f_args->write_size;
 	int8_t s_write_size = s_args->write_size;
 
 	void *f_write = f_args->write;
-	void *f_write_end = f_write + f_write_size;
+	void *f_write_end = (void *)((uint64_t)f_write + f_write_size);
 
 	void *s_write = s_args->write;
-	void *s_write_end = s_write + s_write_size;
+	void *s_write_end = (void *)((uint64_t)s_write + s_write_size);
 
 	bool f_in_stack = f_write_end > stack_begin && f_write < stack_end;
 	bool s_in_stack = s_write_end > stack_begin && s_write < stack_end;
@@ -1756,7 +1756,7 @@ static void proc_insns_frw_sr(insn_args_rw_t *args)
 	nthread_t *nthread = &ntutils->nthread;
 
 	insn_args_rw_t *f_args = args;
-	insn_args_rw_t *s_args = ((void *)(f_args + 1)) - INSN_ARGS_WRITE_DIFF;
+	insn_args_rw_t *s_args = ((void *)((uint64_t)(f_args + 1) - INSN_ARGS_WRITE_DIFF));
 
 	CONTEXT ctx;
 	CONTEXT *n_ctx = &nthread->n_ctx;
@@ -1820,16 +1820,16 @@ static void proc_insns_frw_srw(insn_args_rw_t *args)
 	s_func(s_args);
 
 	void *stack_begin = nthread_stack_begin(nthread);
-	void *stack_end = stack_begin + NTHREAD_STACK_ADD;
+	void *stack_end = (void *)((uint64_t)stack_begin + NTHREAD_STACK_ADD);
 
 	int8_t f_write_size = f_args->write_size;
 	int8_t s_write_size = s_args->write_size;
 
 	void *f_write = f_args->write;
-	void *f_write_end = f_write + f_write_size;
+	void *f_write_end = (void *)((uint64_t)f_write + f_write_size);
 
 	void *s_write = s_args->write;
-	void *s_write_end = s_write + s_write_size;
+	void *s_write_end = (void *)((uint64_t)s_write + s_write_size);
 
 	bool f_in_stack = f_write_end > stack_begin && f_write < stack_end;
 	bool s_in_stack = s_write_end > stack_begin && s_write < stack_end;
@@ -1896,7 +1896,8 @@ static void proc_insns_select_f(void *args)
 	nthread_t *nthread = &ntutils->nthread;
 
 	nh_trampoline_t *tramp =
-		(nh_trampoline_t *)(args - sizeof(proc_insns_fn));
+		(nh_trampoline_t *)((void *)((uint64_t)args - sizeof(proc_insns_fn)));
+
 	insn_args_rw_t *f_args = &tramp->f_args;
 	proc_insn_fn f_func = f_args->func;
 
@@ -1924,7 +1925,7 @@ static void proc_insns_select_f(void *args)
 	if (f_args->write_size > 0)
 		flags |= INSN_FLAG_WRITE;
 	else {
-		memcpy(f_args, (void *)f_args + INSN_ARGS_WRITE_DIFF,
+		memcpy(f_args, (void *)((uint64_t)f_args + INSN_ARGS_WRITE_DIFF),
 		       sizeof(insn_args_t));
 		size -= INSN_ARGS_WRITE_DIFF;
 	}
@@ -1942,7 +1943,7 @@ static void proc_insns_select_f_s(void *args)
 	nthread_t *nthread = &ntutils->nthread;
 
 	nh_trampoline_t *tramp =
-		(nh_trampoline_t *)(args - sizeof(proc_insns_fn));
+		(nh_trampoline_t *)((void *)((uint64_t)args - sizeof(proc_insns_fn)));
 	insn_args_rw_t *f_args = &tramp->f_args;
 	insn_args_rw_t *s_args = &tramp->s_args;
 
@@ -1985,18 +1986,18 @@ static void proc_insns_select_f_s(void *args)
 	if (f_args->write_size > 0)
 		f_flags |= INSN_FLAG_WRITE;
 	else {
-		memcpy(f_args, (void *)f_args + INSN_ARGS_WRITE_DIFF,
+		memcpy(f_args, (void *)((uint64_t)f_args + INSN_ARGS_WRITE_DIFF),
 		       sizeof(insn_args_t));
 		f_diff += INSN_ARGS_WRITE_DIFF;
 	}
 
-	void *pos = (void *)(f_args + 1) - f_diff;
+	void *pos = (void *)((uint64_t)(f_args + 1) - f_diff);
 	if (s_args->write_size > 0) {
 		s_flags |= INSN_FLAG_WRITE;
 		memcpy(pos, s_args, sizeof(insn_args_t));
 	} else {
 		s_diff += INSN_ARGS_WRITE_DIFF;
-		memcpy(pos, (void *)s_args + INSN_ARGS_WRITE_DIFF,
+		memcpy(pos, (void *)((uint64_t)s_args + INSN_ARGS_WRITE_DIFF),
 		       sizeof(insn_args_t));
 	}
 
@@ -2011,7 +2012,7 @@ static void proc_insns_select_f_s(void *args)
 static void proc_insns_select(void *args)
 {
 	nh_trampoline_t *tramp =
-		(nh_trampoline_t *)(args - sizeof(proc_insns_fn));
+		(nh_trampoline_t *)((void *)((uint64_t)args - sizeof(proc_insns_fn)));
 	insn_args_rw_t *f_args = &tramp->f_args;
 	insn_args_rw_t *s_args = &tramp->s_args;
 
@@ -2093,7 +2094,7 @@ void *nh_trampoline_ex(nhook_manager_t *nhook_manager, nhook_t *nhook,
 	void *func = nhook->function;
 
 	void *rsp = nthread_stack_begin(nthread);
-	NTHREAD_SET_REG(nthread, NTHREAD_RSP, rsp - sizeof(func));
+	NTHREAD_SET_REG(nthread, NTHREAD_RSP, (void *)((uint64_t)rsp - sizeof(func)));
 	NTHREAD_SET_REG(nthread, NTHREAD_RIP, func);
 
 	tramp->func(tramp->args);
@@ -2101,7 +2102,7 @@ void *nh_trampoline_ex(nhook_manager_t *nhook_manager, nhook_t *nhook,
 	void *rip = NTHREAD_GET_REG(nthread, NTHREAD_RIP);
 	uint8_t len = nhook->affected_length;
 
-	void *call = func + len;
+	void *call = (void *)((uint64_t)func + len);
 
 	void *reg_args[8];
 	ntu_get_reg_args(arg_count, reg_args);

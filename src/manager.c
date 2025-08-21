@@ -212,7 +212,7 @@ nh_update_remove_thread:
 			void *ret_value =
 				call_dynamic_func(func, arg_count, args);
 
-			void *ret_addr = nosu_push_addr + 1;
+			void *ret_addr = (void *)((uint64_t)nosu_push_addr + 1);
 
 			NTHREAD_SET_OREG(nthread, NTHREAD_RIP, ret_addr);
 			NTHREAD_SET_OREG(nthread, NTHREAD_RAX, ret_value);

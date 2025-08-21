@@ -260,12 +260,11 @@ nh_enable_ex_cs_close_and_return:
 		if (insn[0].size == 1) {
 			int8_t i;
 			for (i = 2; i < 15; i++) {
-				ret = ntu_read_memory(func + i, mem + i, 1);
+				ret = ntu_read_memory((void *)((uint64_t)func + i), (void *)((uint64_t)mem + i), 1);
 				if (HAS_ERR(ret))
 					goto nh_enable_ex_cs_close_and_return;
 
-				count = cs_disasm(handle, mem + 1, i,
-						  (uint64_t)mem + 1, 1, &insn);
+				count = cs_disasm(handle, (void *)((uint64_t)mem + 1), i, (uint64_t)mem + 1, 1, &insn);
 
 				if (count > 0) {
 					if (!nh_trampoline_add_insn(
@@ -281,12 +280,11 @@ nh_enable_ex_cs_close_and_return:
 	} else if (count == 0) {
 		int8_t i;
 		for (i = 2; i < 15; i++) {
-			ret = ntu_read_memory(func + i, mem + i, 1);
+			ret = ntu_read_memory((void *)((uint64_t)func + i), (void *)((uint64_t)mem + i), 1);
 			if (HAS_ERR(ret))
 				goto nh_enable_ex_cs_close_and_return;
 
-			count = cs_disasm(handle, mem, i + 1, (uint64_t)mem, 1,
-					  &insn);
+			count = cs_disasm(handle, mem, i + 1, (uint64_t)mem, 1, &insn);
 
 			if (count > 0) {
 				if (!nh_trampoline_add_insn(nhook->tramp,

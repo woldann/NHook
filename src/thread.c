@@ -55,7 +55,7 @@ nerror_t transfer_threads(nhook_manager_t *nhook_manager, nhook_t *nhook)
 	CONTEXT ctx;
 	ctx.ContextFlags = CONTEXT_CONTROL;
 
-	void *pos = nhook->function + 1;
+	void *pos = (void *)((uint64_t)nhook->function + 1);
 	void *rip;
 
 	uint16_t i;
@@ -74,7 +74,7 @@ nerror_t transfer_threads(nhook_manager_t *nhook_manager, nhook_t *nhook)
 
 		// TODO
 
-		ctx.Rip = (DWORD64)(pos - 1);
+		ctx.Rip = (DWORD64)((uint64_t)pos - 1);
 		if (SetThreadContext(thread, &ctx)) {
 nh_transfer_threads_remove_thread:
 			threads[i] = NULL;
@@ -296,7 +296,7 @@ nerror_t update_threads(nhook_manager_t *nhook_manager)
 			goto nh_update_threads_realloc_error;
 
 		size_t s = n_threads_size - o_threads_size;
-		memset(((void *)threads) + o_threads_size, 0, s);
+		memset(((uint8_t *)threads) + o_threads_size, 0, s);
 	}
 
 	uint16_t i;
@@ -311,7 +311,7 @@ nerror_t update_threads(nhook_manager_t *nhook_manager)
 			continue;
 		}
 
-		uint16_t j = ((size_t)addr - (size_t)n_ids) / sizeof(ntid_t);
+		uint16_t j = ((uint64_t)addr - (uint64_t)n_ids) / sizeof(ntid_t);
 		ntid_t n_id = n_ids[i];
 		n_ids[j] = n_id;
 		n_ids[i] = id;
